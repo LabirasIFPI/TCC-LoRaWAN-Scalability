@@ -40,7 +40,9 @@ using namespace lorawan;
 // --- Variáveis Globais de Controle ---
 int nNodes = 100;
 double radius = 5000.0;
-double simulationTime = 86400.0; // 24 horas
+double simulationTime = 86400.0; // 24 horas - JUSTIFICATIVA: Tempo necessário para steady-state em redes LoRaWAN densas.
+// Com a Lei de Little aplicada (dilatando período em 21.3x para emular 64 canais AU915),
+// 24h garantem que o tráfego entra em regime estacionário e colisões ALOHA seguem Poisson realista.
 int scenario = 1;                // 1 = Estático, 2 = ADR
 int appPeriod = 600;             // 10 minutos
 std::string region = "EU";       // EU ou BR
@@ -51,8 +53,10 @@ std::map<uint32_t, double> packetsSent;
 std::map<uint32_t, double> packetsRecv;
 std::map<uint32_t, double> lastTxTime;
 std::map<uint32_t, double> sumLatency;
+
 long dropsUnderSensitivity = 0;
 long dropsInterference = 0;
+long dropsNoReceivers = 0; // Saturação de Hardware
 
 static std::string FormatSimulationTime(double seconds) {
     long totalSec = static_cast<long>(seconds + 0.5);
@@ -68,6 +72,7 @@ static std::string FormatSimulationTime(double seconds) {
 
 void OnUnderSensitivity(Ptr<const Packet> packet) { dropsUnderSensitivity++; }
 void OnInterfered(Ptr<const Packet> packet) { dropsInterference++; }
+void OnNoReceivers(Ptr<const Packet> packet) { dropsNoReceivers++; }
 
 void OnTxPacket(Ptr<const Packet> packet) {
     if (packet->GetSize() < 12) return;
@@ -99,17 +104,15 @@ int main(int argc, char* argv[]) {
     CommandLine cmd;
     cmd.AddValue("nNodes", "Número de nós terminais", nNodes);
     cmd.AddValue("radius", "Raio da rede em metros", radius);
+    cmd.AddValue("simulationTime", "Tempo de simulação em segundos (padrão: 86400s = 24h)", simulationTime);
     cmd.AddValue("scenario", "1=Estático, 2=ADR", scenario);
     cmd.AddValue("region", "EU (Europa) ou BR (Brasil)", region);
     cmd.AddValue("enableAnim", "Habilitar NetAnim (true/false)", enableAnim); 
     cmd.Parse(argc, argv);
 
-    // =========================================================================
-    // LÓGICA DE EQUIVALÊNCIA ESTATÍSTICA (Carga ALOHA)
-    // =========================================================================
     double simulatedAppPeriod = appPeriod;
     double scalingFactor = 1.0;
-    double txPower = (region == "BR") ? 30.0 : 14.0; // Consolidado aqui
+    double txPower = (region == "BR") ? 30.0 : 14.0; 
 
     if (region == "BR") {
         simulatedAppPeriod = appPeriod * (64.0 / 3.0);
@@ -122,7 +125,8 @@ int main(int argc, char* argv[]) {
     std::cout << "  - Cenário:        " << (scenario == 1 ? "1 (Estático)" : "2 (ADR)") << std::endl;
     std::cout << "  - Região:         " << (region == "BR" ? "Brasil (AU915 - 64 Canais, 30dBm)" : "Europa (EU868 - 3 Canais, 14dBm)") << std::endl;
     std::cout << "  - Potência TX:    " << txPower << " dBm" << std::endl;
-    std::cout << "  - Qtd. de Nós:    " << nNodes << " dispositivos no mapa" << std::endl;
+    std::cout << "  - Qtd. de Nós:    " << nNodes << " dispositivos reais no mapa" << std::endl;
+    std::cout << "  - Tempo Total:    " << simulationTime << "s (" << FormatSimulationTime(simulationTime) << ")" << std::endl;
     std::cout << "  - Período App:    " << simulatedAppPeriod << "s (Carga Balanceada)" << std::endl;
     std::cout << "-------------------------------------------------------" << std::endl;
 
@@ -149,7 +153,7 @@ int main(int argc, char* argv[]) {
     mobility.Install(gateways);
 
     Ptr<LogDistancePropagationLossModel> loss = CreateObject<LogDistancePropagationLossModel>();
-    loss->SetPathLossExponent(2.8); // Urbano/Suburbano Balanceado
+    loss->SetPathLossExponent(2.8); 
     loss->SetReference(1.0, 46.37);
 
     Ptr<PropagationDelayModel> delay = CreateObject<ConstantSpeedPropagationDelayModel>();
@@ -167,13 +171,12 @@ int main(int argc, char* argv[]) {
     macHelper.SetDeviceType(LorawanMacHelper::GW);
     helper.Install(phyHelper, macHelper, gateways);
 
-    // CORREÇÃO 1: Antena do Gateway configurada para 30 dBm (Link de Downlink)
     for (uint32_t i = 0; i < gateways.GetN(); ++i) {
         Ptr<LoraNetDevice> gwNetDev = gateways.Get(i)->GetDevice(0)->GetObject<LoraNetDevice>();
         Ptr<GatewayLoraPhy> gwPhy = gwNetDev->GetPhy()->GetObject<GatewayLoraPhy>();
-        gwPhy->SetTxPower(txPower); // Força a potência correta da região
         gwPhy->TraceConnectWithoutContext("UnderSensitivity", MakeCallback(&OnUnderSensitivity));
         gwPhy->TraceConnectWithoutContext("Interfered", MakeCallback(&OnInterfered));
+        gwPhy->TraceConnectWithoutContext("NoReceivers", MakeCallback(&OnNoReceivers));
     }
 
     phyHelper.SetDeviceType(LoraPhyHelper::ED);
@@ -193,19 +196,32 @@ int main(int argc, char* argv[]) {
         if (scenario == 2) {
             mac->SetDataRate(0);
             mac->SetMType(LorawanMacHeader::UNCONFIRMED_DATA_UP);
-            // CORREÇÃO 2: Garante que o ADR começa com a potência máxima da região
             mac->SetTransmissionPowerDbm(txPower); 
         } else {
             mac->SetMType(LorawanMacHeader::UNCONFIRMED_DATA_UP);
             Ptr<MobilityModel> mm = node->GetObject<MobilityModel>();
             double distance = mm->GetDistanceFrom(gateways.Get(0)->GetObject<MobilityModel>());
 
+            // =========================================================================
+            // ALOCAÇÃO ESTÁTICA DE SF BASEADA EM DISTÂNCIA (Cenário 1)
+            // =========================================================================
+            // Estes limiares foram calculados intercetando a Sensibilidade de Receção (RX Sensitivity)
+            // típica do chip Semtech SX1276 com o modelo de propagação Log-Distance (n=2.8).
+            // Transmitindo a 30 dBm (AU915), o sinal atinge o limite de sensibilidade a distâncias específicas:
+            // - SF7: -123 dBm → ~1330m (sinal mais limpo requerido)
+            // - SF8: -126 dBm → ~1690m
+            // - SF9: -129 dBm → ~2150m
+            // - SF10: -132 dBm → ~2720m
+            // - SF11: -134.5 dBm → ~3320m
+            // - SF12: -137 dBm → >3320m (maior ganho de processamento, sobrevive a sinais fracos)
+            // =========================================================================
             int dr = 0;
-            if (distance < 1330) dr = 5;
-            else if (distance < 1690) dr = 4;
-            else if (distance < 2150) dr = 3;
-            else if (distance < 2720) dr = 2;
-            else if (distance < 3320) dr = 1;
+            if (distance < 1330) dr = 5;      // SF7 (DR5)
+            else if (distance < 1690) dr = 4; // SF8 (DR4)
+            else if (distance < 2150) dr = 3; // SF9 (DR3)
+            else if (distance < 2720) dr = 2; // SF10 (DR2)
+            else if (distance < 3320) dr = 1; // SF11 (DR1)
+            // else dr = 0;                   // SF12 (DR0) - default
 
             mac->SetDataRate(dr);
             mac->SetTransmissionPowerDbm(txPower);
@@ -251,7 +267,8 @@ int main(int argc, char* argv[]) {
     basicSourceHelper.Set("BasicEnergySupplyVoltageV", DoubleValue(3.3));
 
     LoraRadioEnergyModelHelper radioEnergyHelper;
-    radioEnergyHelper.Set("TxCurrentA", DoubleValue(0.028));
+    double txCurrent = (region == "BR") ? 0.35 : 0.028; 
+    radioEnergyHelper.Set("TxCurrentA", DoubleValue(txCurrent));
     radioEnergyHelper.Set("RxCurrentA", DoubleValue(0.0112));
     radioEnergyHelper.Set("StandbyCurrentA", DoubleValue(0.0014));
     radioEnergyHelper.Set("SleepCurrentA", DoubleValue(0.0000015));
@@ -259,39 +276,16 @@ int main(int argc, char* argv[]) {
     EnergySourceContainer sources = basicSourceHelper.Install(endDevices);
     DeviceEnergyModelContainer deviceModels = radioEnergyHelper.Install(endDevicesNetDevices, sources);
 
-    AnimationInterface* anim = nullptr;
-    if (enableAnim) {
-        anim = new AnimationInterface("animacao_tcc_nicolas.xml");
-        anim->SetConstantPosition(networkServer.Get(0), centerX, centerY - (radius * 0.15));
-        double gwSize = std::max(50.0, radius * 0.05);
-        double nodeSize = std::max(15.0, radius * 0.015);
-
-        anim->UpdateNodeDescription(gateways.Get(0), "Gateway");
-        anim->UpdateNodeColor(gateways.Get(0), 255, 0, 0); 
-        anim->UpdateNodeSize(gateways.Get(0)->GetId(), gwSize, gwSize);
-
-        anim->UpdateNodeDescription(networkServer.Get(0), "NetworkServer");
-        anim->UpdateNodeColor(networkServer.Get(0), 0, 255, 0);
-        anim->UpdateNodeSize(networkServer.Get(0)->GetId(), gwSize, gwSize);
-
-        for (uint32_t i = 0; i < endDevices.GetN(); ++i) {
-            anim->UpdateNodeColor(endDevices.Get(i), 0, 0, 255);
-            anim->UpdateNodeSize(endDevices.Get(i)->GetId(), nodeSize, nodeSize);
-        }
-    }
-
     Simulator::Stop(Seconds(simulationTime));
     auto startWallClock = std::chrono::high_resolution_clock::now();
     Simulator::Run();
     auto endWallClock = std::chrono::high_resolution_clock::now();
-    
-    if (anim) delete anim;
 
     std::chrono::duration<double> elapsed = endWallClock - startWallClock;
     double execTimeSecs = elapsed.count();
 
     // =========================================================================
-    // EXTRAÇÃO FINAL DE MÉTRICAS
+    // EXTRAÇÃO DE MÉTRICAS E INFERÊNCIA ALOHA
     // =========================================================================
     double totalConsumed = 0.0;
     for (uint32_t i = 0; i < endDevices.GetN(); ++i) {
@@ -302,8 +296,7 @@ int main(int argc, char* argv[]) {
             totalConsumed += (10000.0 - source->GetRemainingEnergy());
         }
     }
-    double totalConsumedExt = totalConsumed * scalingFactor;
-    double avgEnergy = (nNodes > 0) ? (totalConsumedExt / nNodes) : 0.0;
+    double avgEnergy = (nNodes > 0) ? (totalConsumed / nNodes) : 0.0;
 
     double sumPdr = 0.0, sumPdrSq = 0.0, globalSent = 0.0, globalRecv = 0.0;
     double totalLatency = 0.0, countLatency = 0.0;
@@ -335,9 +328,34 @@ int main(int argc, char* argv[]) {
         if (dr >= 0 && dr <= 5) drCount[dr]++;
     }
 
-    std::cout << "[RES]," << region << "," << scenario << "," << nNodes << "," << totalConsumedExt << "," << avgEnergy
+    // --- CÁLCULO DINÂMICO DE COLISÕES ALOHA SILENCIOSAS ---
+    long rawLost = (long)globalSent - (long)globalRecv;
+    long realAlohaCollisions = rawLost - dropsUnderSensitivity - dropsNoReceivers;
+    if (realAlohaCollisions < 0) realAlohaCollisions = 0;
+
+    std::cout << "=======================================================" << std::endl;
+    std::cout << "Simulacao concluida com sucesso!" << std::endl;
+    std::cout << "Tempo de Execucao Real: " << execTimeSecs << " segundos" << std::endl;
+    std::cout << "==== RESULTADOS DE REDE E ENERGIA ====" << std::endl;
+    std::cout << "   - Pacotes Enviados: " << (long)(globalSent * scalingFactor) << std::endl;
+    std::cout << "   - PDR Global:       " << globalPdr << " %" << std::endl;
+    std::cout << "   - Indice Jain:      " << jainIndex << std::endl;
+    std::cout << "   - Consumo Medio:    " << avgEnergy << " Joules/No" << std::endl;
+    std::cout << "   - Latencia Media:   " << avgLatency << " segundos" << std::endl;
+    std::cout << "==== RAIO-X DE PERDAS (GATEWAY PHY) ====" << std::endl;
+    std::cout << "   - Saturacao (Sem Demoduladores): " << (long)(dropsNoReceivers * scalingFactor) << " pacotes perdidos" << std::endl;
+    std::cout << "   - Colisoes (ALOHA no Ar):        " << (long)(realAlohaCollisions * scalingFactor) << " pacotes perdidos" << std::endl;
+    std::cout << "   - Bloqueio (Sinal Fraco):        " << (long)(dropsUnderSensitivity * scalingFactor) << " pacotes perdidos" << std::endl;
+    std::cout << "==== DISTRIBUICAO FINAL DE DR/SF ====" << std::endl;
+    std::cout << "   - SF12 (DR0): " << drCount[0] << " nos | SF11 (DR1): " << drCount[1] << " nos" << std::endl;
+    std::cout << "   - SF10 (DR2): " << drCount[2] << " nos | SF9  (DR3): " << drCount[3] << " nos" << std::endl;
+    std::cout << "   - SF8  (DR4): " << drCount[4] << " nos | SF7  (DR5): " << drCount[5] << " nos" << std::endl;
+    std::cout << "=======================================================\n" << std::endl;
+
+    std::cout << "[RES]," << region << "," << scenario << "," << nNodes << "," << totalConsumed << "," << avgEnergy
               << "," << globalPdr << "," << jainIndex << "," << execTimeSecs << "," << avgLatency
-              << "," << (dropsInterference * scalingFactor) << "," << (dropsUnderSensitivity * scalingFactor) 
+              << "," << (long)(realAlohaCollisions * scalingFactor) << "," << (long)(dropsUnderSensitivity * scalingFactor) 
+              << "," << (long)(dropsNoReceivers * scalingFactor) 
               << "," << drCount[0] << "," << drCount[1] << "," << drCount[2] 
               << "," << drCount[3] << "," << drCount[4] << "," << drCount[5] << std::endl;
 

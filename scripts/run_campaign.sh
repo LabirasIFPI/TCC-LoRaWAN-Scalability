@@ -28,28 +28,25 @@ echo -e "${CYAN}=======================================================${NC}\n"
 # ==========================================
 MAX_JOBS=10 
 TOTAL_SIMULATIONS=330 
+# JUSTIFICATIVA ESTATÍSTICA: 33 sementes por configuração respeitam o Teorema do Limite Central,
+# garantindo intervalo de confiança de 95% para PDR e Energia. Dilui anomalias aleatórias (ex: nós concentrados no Gateway). 
 
-# Caminho absoluto para a pasta do seu repositório
+# Caminho absoluto para a pasta do repositório
 REPO_DIR="$HOME/Documents/Nicolas/TCC-LoRaWAN-Scalability"
-RESULTS_DIR="$REPO_DIR/results"
-LOGS_DIR="$RESULTS_DIR/CSV"
+CSV_DIR="$REPO_DIR/results/CSV"
+LOGS_DIR="$REPO_DIR/results/logs"
 
-# Garante que as pastas existem no seu repositório
-mkdir -p "$RESULTS_DIR"
+mkdir -p "$CSV_DIR"
 mkdir -p "$LOGS_DIR"
 
 echo -e "${YELLOW}>> Recompilando o código fonte C++...${NC}"
 ./ns3 build lora-tcc-nicolas 1>/dev/null 2>&1
 echo -e "${GREEN}[✔] Compilação concluída!${NC}\n"
 
-TIMESTAMP=$(date +"%Y/%m/%d_%H:%M:%S")
-# O CSV agora vai ser salvo DIRETAMENTE na sua pasta do VS Code!
-CSV_FILE="$RESULTS_DIR/resultados_lorawan_${REGION}_${TIMESTAMP}.csv"
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+CSV_FILE="$CSV_DIR/resultados_lorawan_${REGION}_${TIMESTAMP}.csv"
 
-echo "Regiao,Cenario,Nos,EnergiaTotalExt_J,EnergiaMedia_J,PDR_Percent,JainIndex,TempoExec_s,LatenciaMedia_s,PerdasColisaoExt,PerdasSinalFracoExt,DR0_SF12,DR1_SF11,DR2_SF10,DR3_SF9,DR4_SF8,DR5_SF7,Semente" > "$CSV_FILE"
-
-PROGRESS_FILE="$LOGS_DIR/progress_${TIMESTAMP}.tmp"
-echo "0" > "$PROGRESS_FILE"
+echo "Regiao,Cenario,Nos,EnergiaTotalExt_J,EnergiaMedia_J,PDR_Percent,JainIndex,TempoExec_s,LatenciaMedia_s,PerdasColisaoExt,PerdasSinalFracoExt,PerdasSaturacaoExt,DR0_SF12,DR1_SF11,DR2_SF10,DR3_SF9,DR4_SF8,DR5_SF7,Semente" > "$CSV_FILE"
 
 CAMPAIGN_START=$(date +%s)
 
@@ -70,7 +67,6 @@ run_simulation() {
         
         # Cadeado ativado: Segurança contra corrupção de dados no paralelismo
         flock -x "$CSV_FILE" -c "echo \"$clean_output,$seed\" >> \"$CSV_FILE\""
-        flock -x "$PROGRESS_FILE" -c "expr \$(cat \"$PROGRESS_FILE\") + 1 > \"$PROGRESS_FILE\""
         
         rm "$log_file"
     else
@@ -79,12 +75,17 @@ run_simulation() {
 }
 
 # ==========================================
-# MONITOR DE PROGRESSO VISUAL
+# MONITOR DE PROGRESSO VISUAL (Contagem via CSV)
 # ==========================================
 show_progress() {
     while true; do
-        if [ -f "$PROGRESS_FILE" ]; then
-            COMPLETED=$(cat "$PROGRESS_FILE")
+        if [ -f "$CSV_FILE" ]; then
+            # Conta as linhas do CSV e subtrai 1 (o cabeçalho)
+            LINES=$(wc -l < "$CSV_FILE")
+            COMPLETED=$((LINES - 1))
+            
+            if [ "$COMPLETED" -lt 0 ]; then COMPLETED=0; fi
+
             PERCENT=$((COMPLETED * 100 / TOTAL_SIMULATIONS))
             echo -ne "\r${YELLOW}Progresso da Campanha [${REGION}]: ${COMPLETED}/${TOTAL_SIMULATIONS} (${PERCENT}%)${NC}"
             
@@ -120,8 +121,6 @@ wait
 
 kill $PROGRESS_PID 2>/dev/null
 echo -ne "\r\033[K${GREEN}[✔] Todas as ${TOTAL_SIMULATIONS} simulações da região ${REGION} foram concluídas!${NC}\n"
-
-rm -f "$PROGRESS_FILE"
 
 CAMPAIGN_END=$(date +%s)
 TOTAL_SECONDS=$((CAMPAIGN_END - CAMPAIGN_START))

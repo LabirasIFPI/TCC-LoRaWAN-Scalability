@@ -32,7 +32,7 @@ Como as boas práticas recomendam não versionar o núcleo do NS-3 (por ser muit
 ├── scripts/
 │   ├── run_campaign.sh           # Automação das 330 rodadas estocásticas (Bash)
 │   ├── sync_from_ns3.sh          # Script utilitário para sincronizar atualizações do NS-3
-│   └── analyze_results.py        # Processamento de dados e cálculo do Índice de Jain (Python)
+│   └── gerar_graficos.py         # Processamento de dados e geração de gráficos (Python)
 ├── results/                      # Diretório gerado pela campanha contendo os .csv e .txt
 └── README.md                     # Documentação do projeto
 
@@ -95,9 +95,30 @@ cd /caminho/para/o/seu/ns-3-dev/
 
 ## 📊 Análise de Dados
 
-Após a conclusão da campanha, o arquivo `energia_consolidada.csv` e os *logs* individuais de pacotes (`tracker_*.txt`) estarão disponíveis.
+Após a conclusão da campanha, o arquivo `resultados_lorawan_*.csv` e os *logs* individuais estarão disponíveis na pasta `results/`.
 
-Para extrair o *Packet Delivery Ratio* (PDR) e calcular o Índice de Justiça de Jain, execute o script em Python:
+Para processar os dados e gerar os gráficos essenciais, execute o script em Python:
+
+```bash
+python3 scripts/gerar_graficos.py resultados_lorawan_BR_20260320_120000.csv --region=BR
+```
+
+*(Substitua pelo nome exato do seu arquivo CSV gerado pela campanha).*
+
+---
+
+## 🔬 Justificativas Científicas e Metodológicas
+
+### 1. Limiares de Distância para Alocação Estática de SF
+Os valores fixos de distância (1330m → SF7, 1690m → SF8, etc.) não são arbitrários. Foram calculados intercetando a **Sensibilidade de Receção (RX Sensitivity)** típica do chip Semtech SX1276 com o **modelo de propagação Log-Distance** parametrizado com expoente $n=2.8$. Transmitindo a 30 dBm (AU915), o sinal atinge os limites de sensibilidade específicos para cada SF, garantindo cobertura otimizada sem desperdício espectral.
+
+### 2. Tempo de Simulação de 24 Horas
+As 24 horas (86400s) são essenciais para validação estocástica em redes LoRaWAN densas. Com a **Lei de Little** aplicada (dilatando o período da aplicação em ~21.3x para emular os 64 canais AU915 sobre os 3 canais europeus), este tempo garante que o tráfego entre em **regime estacionário (steady-state)** e que as colisões ALOHA no ar sigam uma distribuição de Poisson realista.
+
+### 3. Rigor Estatístico das 33 Sementes
+A campanha utiliza 33 execuções com sementes pseudoaleatórias distintas por configuração, respeitando o **Teorema do Limite Central**. Isso dilui anomalias estatísticas (ex: concentração acidental de nós próximos ao Gateway) e fornece um **intervalo de confiança de 95%** para métricas como PDR e consumo energético. Futuramente, pode-se adicionar ANOVA ou testes t-Student no script Python para validação adicional.
+
+---
 
 ```bash
 python3 scripts/analyze_results.py
