@@ -3,103 +3,161 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import os
+import argparse
 
-# Configurações de estilo acadêmico (Visual limpo e profissional)
+# ==========================================
+# 1. CONFIGURAÇÃO DE DIRETÓRIOS E ARGUMENTOS
+# ==========================================
+BASE_DIR = "/home/labiras/Documents/Nicolas/TCC-LoRaWAN-Scalability/results"
+CSV_DIR = os.path.join(BASE_DIR, "CSV")
+GRAFICOS_DIR = os.path.join(BASE_DIR, "Grafics")
+
+# Garante que a pasta de gráficos existe
+os.makedirs(GRAFICOS_DIR, exist_ok=True)
+
+parser = argparse.ArgumentParser(description='Gerador de Gráficos LoRaWAN TCC - Suite Completa')
+parser.add_argument('csv_name', type=str, help='Nome do arquivo CSV (ex: resultados_lorawan_BR_2026.csv)')
+parser.add_argument('--region', type=str, choices=['EU', 'BR'], default='BR', help='Região para gerar os gráficos (EU ou BR)')
+args = parser.parse_args()
+
+# Constrói o caminho completo automaticamente
+if not os.path.dirname(args.csv_name):
+    csv_path = os.path.join(CSV_DIR, args.csv_name)
+else:
+    csv_path = args.csv_name # Caso o usuário passe o caminho completo por engano
+
 sns.set_theme(style="whitegrid")
 plt.rcParams.update({'font.size': 12, 'figure.autolayout': True})
 
 # ==========================================
-# 1. CARREGAMENTO E TRATAMENTO DOS DADOS
+# 2. CARREGAMENTO E FILTRAGEM DINÂMICA
 # ==========================================
-# Caminho absoluto mapeando a pasta do NS-3 no seu Pop!_OS
-caminho_ns3 = os.path.expanduser("~/Documents/Nicolas/ns-allinone-3.45/ns-3.45/results_tcc/")
-nome_do_csv = "resultados_lorawan_20260317_214004.csv"  # <-- COLOQUE O NOME DO SEU CSV AQUI
+try:
+    df = pd.read_csv(csv_path)
+except FileNotFoundError:
+    print(f"[!] Arquivo não encontrado: {csv_path}")
+    print(f"[*] Certifique-se de que o arquivo está na pasta: {CSV_DIR}")
+    exit(1)
 
-arquivo_csv = os.path.join(caminho_ns3, nome_do_csv)
+# Filtra dinamicamente pela região escolhida no terminal
+df_region = df[df['Regiao'] == args.region]
+if df_region.empty:
+    print(f"[!] Nenhuma linha encontrada para a região {args.region} no CSV fornecido.")
+    exit(1)
 
-print(f"[*] Lendo dados de: {arquivo_csv}")
-df = pd.read_csv(arquivo_csv)
+# Agrupa pelas 33 sementes tirando a média rigorosa (IGNORANDO COLUNAS DE TEXTO)
+df_mean = df_region.groupby(['Cenario', 'Nos']).mean(numeric_only=True).reset_index()
 
-# Agrupa por Cenário e Número de Nós, calculando a média de todas as sementes
-df_mean = df.groupby(['Cenario', 'Nos']).mean().reset_index()
-
-# Separa os dataframes para facilitar a plotagem
-df_c1 = df_mean[df_mean['Cenario'] == 1] # Cenário 1: Estático
-df_c2 = df_mean[df_mean['Cenario'] == 2] # Cenário 2: ADR
-
+df_c1 = df_mean[df_mean['Cenario'] == 1]
+df_c2 = df_mean[df_mean['Cenario'] == 2]
 nos_x = df_c1['Nos'].values
 
+print(f"[*] Processando dados para a Região: {args.region}...")
+
 # ==========================================
-# 2. GRÁFICO 1: PDR (Packet Delivery Ratio)
+# GRÁFICO 1: PDR (Packet Delivery Ratio)
 # ==========================================
 plt.figure(figsize=(8, 5))
-plt.plot(nos_x, df_c1['PDR_Percent'], marker='o', linestyle='-', linewidth=2, label='Cenário 1 (Estático)', color='#d62728')
+plt.plot(nos_x, df_c1['PDR_Percent'], marker='o', linestyle='-', linewidth=2, label='Cenário 1 (Estático)', color='#2ca02c')
 plt.plot(nos_x, df_c2['PDR_Percent'], marker='s', linestyle='-', linewidth=2, label='Cenário 2 (ADR)', color='#1f77b4')
-
-plt.title('Taxa de Entrega de Pacotes (PDR) vs Densidade de Nós')
+plt.title(f'Taxa de Entrega de Pacotes (PDR) - {args.region}')
 plt.xlabel('Número de Nós na Rede')
 plt.ylabel('PDR (%)')
 plt.xticks(nos_x)
 plt.legend()
-plt.savefig('grafico_1_PDR.png', dpi=300)
+plt.savefig(os.path.join(GRAFICOS_DIR, f'grafico_1_PDR_{args.region}.png'), dpi=300)
 plt.close()
 
 # ==========================================
-# 3. GRÁFICO 2: CONSUMO DE ENERGIA
+# GRÁFICO 2: CONSUMO MÉDIO DE ENERGIA
 # ==========================================
 plt.figure(figsize=(8, 5))
-bar_width = 0.35
-index = np.arange(len(nos_x))
-
-plt.bar(index, df_c1['EnergiaMedia_J'], bar_width, label='Cenário 1 (Estático)', color='#d62728', alpha=0.8)
-plt.bar(index + bar_width, df_c2['EnergiaMedia_J'], bar_width, label='Cenário 2 (ADR)', color='#1f77b4', alpha=0.8)
-
-plt.title('Consumo Médio de Energia por Nó')
+plt.plot(nos_x, df_c1['EnergiaMedia_J'], marker='o', linestyle='-', linewidth=2, label='Cenário 1 (Estático)', color='#d62728')
+plt.plot(nos_x, df_c2['EnergiaMedia_J'], marker='s', linestyle='-', linewidth=2, label='Cenário 2 (ADR)', color='#9467bd')
+plt.title(f'Consumo Médio de Energia por Nó - {args.region}')
 plt.xlabel('Número de Nós na Rede')
 plt.ylabel('Energia Consumida (Joules)')
-plt.xticks(index + bar_width / 2, nos_x)
-plt.legend()
-plt.savefig('grafico_2_Energia.png', dpi=300)
-plt.close()
-
-# ==========================================
-# 4. GRÁFICO 3: LATÊNCIA (TEMPO NO AR)
-# ==========================================
-plt.figure(figsize=(8, 5))
-plt.plot(nos_x, df_c1['LatenciaMedia_s'], marker='o', linestyle='--', linewidth=2, label='Cenário 1 (Estático)', color='#d62728')
-plt.plot(nos_x, df_c2['LatenciaMedia_s'], marker='s', linestyle='-', linewidth=2, label='Cenário 2 (ADR)', color='#1f77b4')
-
-plt.title('Latência Média (Time on Air) vs Densidade de Nós')
-plt.xlabel('Número de Nós na Rede')
-plt.ylabel('Latência Média (Segundos)')
 plt.xticks(nos_x)
 plt.legend()
-plt.savefig('grafico_3_Latencia.png', dpi=300)
+plt.savefig(os.path.join(GRAFICOS_DIR, f'grafico_2_Energia_{args.region}.png'), dpi=300)
 plt.close()
 
 # ==========================================
-# 5. GRÁFICO 4: DISTRIBUIÇÃO DE SF (Rede Massiva - 5000 Nós)
+# GRÁFICO 3: LATÊNCIA MÉDIA
 # ==========================================
-c1_5000 = df_c1[df_c1['Nos'] == 5000].iloc[0]
-c2_5000 = df_c2[df_c2['Nos'] == 5000].iloc[0]
+plt.figure(figsize=(8, 5))
+plt.plot(nos_x, df_c1['LatenciaMedia_s'], marker='o', linestyle='-', linewidth=2, label='Cenário 1 (Estático)', color='#8c564b')
+plt.plot(nos_x, df_c2['LatenciaMedia_s'], marker='s', linestyle='-', linewidth=2, label='Cenário 2 (ADR)', color='#e377c2')
+plt.title(f'Latência Média de Comunicação - {args.region}')
+plt.xlabel('Número de Nós na Rede')
+plt.ylabel('Tempo (Segundos)')
+plt.xticks(nos_x)
+plt.legend()
+plt.savefig(os.path.join(GRAFICOS_DIR, f'grafico_3_Latencia_{args.region}.png'), dpi=300)
+plt.close()
 
-sfs = ['SF12', 'SF11', 'SF10', 'SF9', 'SF8', 'SF7']
-c1_sf_counts = [c1_5000['DR0_SF12'], c1_5000['DR1_SF11'], c1_5000['DR2_SF10'], c1_5000['DR3_SF9'], c1_5000['DR4_SF8'], c1_5000['DR5_SF7']]
-c2_sf_counts = [c2_5000['DR0_SF12'], c2_5000['DR1_SF11'], c2_5000['DR2_SF10'], c2_5000['DR3_SF9'], c2_5000['DR4_SF8'], c2_5000['DR5_SF7']]
+# ==========================================
+# GRÁFICO 4: DISTRIBUIÇÃO DE SF (Cenário 2 - ADR)
+# ==========================================
+plt.figure(figsize=(10, 6))
+bar_width = 0.6
+index = np.arange(len(nos_x))
+
+sf7 = df_c2['DR5_SF7'].values
+sf8 = df_c2['DR4_SF8'].values
+sf9 = df_c2['DR3_SF9'].values
+sf10 = df_c2['DR2_SF10'].values
+sf11 = df_c2['DR1_SF11'].values
+sf12 = df_c2['DR0_SF12'].values
+
+plt.bar(index, sf7, bar_width, label='SF7', color='#2ca02c')
+plt.bar(index, sf8, bar_width, bottom=sf7, label='SF8', color='#bcbd22')
+plt.bar(index, sf9, bar_width, bottom=sf7+sf8, label='SF9', color='#17becf')
+plt.bar(index, sf10, bar_width, bottom=sf7+sf8+sf9, label='SF10', color='#1f77b4')
+plt.bar(index, sf11, bar_width, bottom=sf7+sf8+sf9+sf10, label='SF11', color='#ff7f0e')
+plt.bar(index, sf12, bar_width, bottom=sf7+sf8+sf9+sf10+sf11, label='SF12', color='#d62728')
+
+plt.title(f'Distribuição de Spreading Factors (Cenário 2 - ADR) - {args.region}')
+plt.xlabel('Número de Nós na Rede')
+plt.ylabel('Quantidade Média de Nós')
+plt.xticks(index, nos_x)
+plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+plt.savefig(os.path.join(GRAFICOS_DIR, f'grafico_4_Dist_SF_ADR_{args.region}.png'), dpi=300, bbox_inches='tight')
+plt.close()
+
+# ==========================================
+# GRÁFICO 5: ÍNDICE DE JUSTIÇA DE JAIN
+# ==========================================
+plt.figure(figsize=(8, 5))
+plt.plot(nos_x, df_c1['JainIndex'], marker='o', linestyle='-', linewidth=2, label='Cenário 1 (Estático)', color='#d62728')
+plt.plot(nos_x, df_c2['JainIndex'], marker='s', linestyle='-', linewidth=2, label='Cenário 2 (ADR)', color='#1f77b4')
+plt.title(f'Índice de Justiça de Jain - Padrão {args.region}')
+plt.xlabel('Número de Nós na Rede')
+plt.ylabel('Jain Index (0 a 1)')
+plt.xticks(nos_x)
+plt.legend()
+plt.savefig(os.path.join(GRAFICOS_DIR, f'grafico_5_Jain_{args.region}.png'), dpi=300)
+plt.close()
+
+# ==========================================
+# GRÁFICO 6: RAIO-X DE PERDAS (Colisão vs Sinal) - Cenário 2
+# ==========================================
+colisoes = df_c2['PerdasColisaoExt'].values
+sinal_fraco = df_c2['PerdasSinalFracoExt'].values
 
 plt.figure(figsize=(8, 5))
-bar_width = 0.4
-index_sf = np.arange(len(sfs))
+bar_width = 0.5
+index = np.arange(len(nos_x))
 
-plt.bar(index_sf, c1_sf_counts, bar_width, label='Cenário 1 (Estático)', color='#d62728', alpha=0.8)
-plt.bar(index_sf + bar_width, c2_sf_counts, bar_width, label='Cenário 2 (ADR)', color='#1f77b4', alpha=0.8)
+plt.bar(index, sinal_fraco, bar_width, label='Sinal Fraco (Abaixo Sensibilidade)', color='#ff7f0e', alpha=0.8)
+plt.bar(index, colisoes, bar_width, bottom=sinal_fraco, label='Colisão (ALOHA e Interferência)', color='#d62728', alpha=0.8)
 
-plt.title('Distribuição de Spreading Factors (5000 Nós)')
-plt.xlabel('Spreading Factor (SF)')
-plt.ylabel('Quantidade de Nós Alocados')
-plt.xticks(index_sf + bar_width / 2, sfs)
+plt.title(f'Causas de Perda de Pacotes no Cenário 2 (ADR) - {args.region}')
+plt.xlabel('Número de Nós na Rede')
+plt.ylabel('Quantidade Média de Pacotes Perdidos')
+plt.xticks(index, nos_x)
 plt.legend()
-plt.savefig('grafico_4_Distribuicao_SF.png', dpi=300)
+plt.savefig(os.path.join(GRAFICOS_DIR, f'grafico_6_Perdas_Stacked_{args.region}.png'), dpi=300)
 plt.close()
 
-print("[+] Gráficos salvos com sucesso na pasta 'scripts'!")
+print(f"[+] Todos os 6 gráficos foram gerados com sucesso na pasta {GRAFICOS_DIR}!")

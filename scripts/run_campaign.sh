@@ -6,101 +6,96 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' 
 
+# ==========================================
+# PARÂMETRO DE REGIÃO (Módulo EU vs BR)
+# ==========================================
+REGION=${1:-BR}
+REGION=$(echo "$REGION" | tr '[:lower:]' '[:upper:]') 
+
+if [[ "$REGION" != "BR" && "$REGION" != "EU" ]]; then
+    echo -e "${RED}[!] Região inválida! Use 'BR' ou 'EU'.${NC}"
+    echo "Exemplo: ./run_campaign.sh BR"
+    exit 1
+fi
+
 echo -e "${CYAN}=======================================================${NC}"
 echo -e "${CYAN}   INICIANDO CAMPANHA OTIMIZADA (MULTI-CORE) - NS-3    ${NC}"
+echo -e "${CYAN}   Região Selecionada: ${YELLOW}${REGION}${CYAN}                             ${NC}"
 echo -e "${CYAN}=======================================================${NC}\n"
 
 # ==========================================
-# CONFIGURAÇÕES DE PARALELISMO E ARQUIVOS
+# CONFIGURAÇÕES DE DIRETÓRIOS E PARALELISMO
 # ==========================================
-MAX_JOBS=10 # Usa 10 threads do processador simultaneamente
-TOTAL_SIMULATIONS=330 # (2 cenários * 5 tamanhos de rede * 33 sementes)
+MAX_JOBS=10 
+TOTAL_SIMULATIONS=330 
 
-# Garante que a pasta existe (sem apagar os arquivos antigos!)
-mkdir -p results_tcc
-mkdir -p results_tcc/logs
+# Caminho absoluto para a pasta do seu repositório
+REPO_DIR="$HOME/Documents/Nicolas/TCC-LoRaWAN-Scalability"
+RESULTS_DIR="$REPO_DIR/results"
+LOGS_DIR="$RESULTS_DIR/CSV"
 
-# Gera um timestamp seguro (AnoMesDia_HoraMinutoSegundo)
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-CSV_FILE="results_tcc/resultados_lorawan_${TIMESTAMP}.csv"
+# Garante que as pastas existem no seu repositório
+mkdir -p "$RESULTS_DIR"
+mkdir -p "$LOGS_DIR"
 
-# ==========================================
-# NOVO CABEÇALHO DO CSV (Com as métricas do TCC)
-# ==========================================
-echo "Cenario,Nos,EnergiaTotal_J,EnergiaMedia_J,PDR_Percent,JainIndex,TempoExec_s,LatenciaMedia_s,PerdasColisao,PerdasSinalFraco,DR0_SF12,DR1_SF11,DR2_SF10,DR3_SF9,DR4_SF8,DR5_SF7,Semente" > "$CSV_FILE"
+echo -e "${YELLOW}>> Recompilando o código fonte C++...${NC}"
+./ns3 build lora-tcc-nicolas 1>/dev/null 2>&1
+echo -e "${GREEN}[✔] Compilação concluída!${NC}\n"
 
-echo -e "${YELLOW}[*] Novo arquivo de resultados criado: ${CSV_FILE}${NC}"
-echo -e "${YELLOW}[*] Compilando o NS-3 em modo otimizado...${NC}"
+TIMESTAMP=$(date +"%Y/%m/%d_%H:%M:%S")
+# O CSV agora vai ser salvo DIRETAMENTE na sua pasta do VS Code!
+CSV_FILE="$RESULTS_DIR/resultados_lorawan_${REGION}_${TIMESTAMP}.csv"
 
-./ns3 build
-if [ $? -ne 0 ]; then
-    echo -e "${RED}[!] Erro na compilação. Abortando campanha.${NC}"
-    exit 1
-fi
-echo -e "${GREEN}[+] Compilação concluída com sucesso!${NC}\n"
+echo "Regiao,Cenario,Nos,EnergiaTotalExt_J,EnergiaMedia_J,PDR_Percent,JainIndex,TempoExec_s,LatenciaMedia_s,PerdasColisaoExt,PerdasSinalFracoExt,DR0_SF12,DR1_SF11,DR2_SF10,DR3_SF9,DR4_SF8,DR5_SF7,Semente" > "$CSV_FILE"
 
-# Inicia o cronômetro global da campanha
+PROGRESS_FILE="$LOGS_DIR/progress_${TIMESTAMP}.tmp"
+echo "0" > "$PROGRESS_FILE"
+
 CAMPAIGN_START=$(date +%s)
 
 # ==========================================
-# FUNÇÃO TRABALHADORA (Roda 1 Simulação)
+# FUNÇÃO DE EXECUÇÃO INDIVIDUAL
 # ==========================================
 run_simulation() {
-    local sc=$1
-    local n=$2
+    local scenario=$1
+    local nodes=$2
     local seed=$3
-    local log_file="results_tcc/logs/sim_sc${sc}_n${n}_seed${seed}.log"
 
-    # Executa o NS-3 silenciando a saída para um log temporário
-    ./ns3 run "lora-tcc-nicolas.cc --nNodes=$n --scenario=$sc --RngRun=$seed" > "$log_file" 2>&1
-
-    # Extrai a linha de resultado limpa gerada pelo C++
-    local res_line=$(grep "\[RES\]" "$log_file" | sed 's/\[RES\],//')
+    local log_file="$LOGS_DIR/sim_${REGION}_sc${scenario}_n${nodes}_s${seed}.log"
     
-    # Se encontrou o resultado, anexa de forma segura no CSV com a semente no final
-    if [[ -n "$res_line" ]]; then
-        echo "${res_line},${seed}" >> "$CSV_FILE"
+    local output=$(./ns3 run "lora-tcc-nicolas --scenario=$scenario --nNodes=$nodes --region=$REGION --enableAnim=false --RngRun=$seed" 2> "$log_file" | grep "^\[RES\]")
+    
+    if [ ! -z "$output" ]; then
+        local clean_output=$(echo "$output" | sed 's/\[RES\],//')
+        
+        # Cadeado ativado: Segurança contra corrupção de dados no paralelismo
+        flock -x "$CSV_FILE" -c "echo \"$clean_output,$seed\" >> \"$CSV_FILE\""
+        flock -x "$PROGRESS_FILE" -c "expr \$(cat \"$PROGRESS_FILE\") + 1 > \"$PROGRESS_FILE\""
+        
+        rm "$log_file"
+    else
+        echo -e "\n${RED}[✖] Falha Crítica: Região $REGION | Cenário $scenario | $nodes Nós | Semente $seed${NC}"
     fi
-    
-    # Apaga o log temporário para economizar espaço em disco
-    rm "$log_file"
 }
 
 # ==========================================
-# MONITOR DE PROGRESSO (Dashboard ao Vivo)
+# MONITOR DE PROGRESSO VISUAL
 # ==========================================
 show_progress() {
     while true; do
-        # Conta quantas linhas de resultados já existem no CSV
-        local current_lines=$(wc -l < "$CSV_FILE" 2>/dev/null || echo "1")
-        local completed=$((current_lines - 1)) # Desconta o cabeçalho
-        if [ "$completed" -lt 0 ]; then completed=0; fi
-        
-        # Calcula o tempo decorrido
-        local now=$(date +%s)
-        local elapsed=$((now - CAMPAIGN_START))
-        local h=$((elapsed / 3600))
-        local m=$(((elapsed % 3600) / 60))
-        local s=$((elapsed % 60))
-        local time_str=$(printf "%02dh %02dm %02ds" $h $m $s)
-        
-        # Calcula a porcentagem
-        local percent=$((completed * 100 / TOTAL_SIMULATIONS))
-        
-        # Imprime na mesma linha do terminal
-        echo -ne "\r\033[K${CYAN}[⏳] Tempo: ${time_str} | Progresso: ${percent}% (${completed}/${TOTAL_SIMULATIONS} simulações concluídas)${NC}"
-        
-        # Se terminou tudo, encerra o monitor
-        if [ "$completed" -ge "$TOTAL_SIMULATIONS" ]; then
-            break
+        if [ -f "$PROGRESS_FILE" ]; then
+            COMPLETED=$(cat "$PROGRESS_FILE")
+            PERCENT=$((COMPLETED * 100 / TOTAL_SIMULATIONS))
+            echo -ne "\r${YELLOW}Progresso da Campanha [${REGION}]: ${COMPLETED}/${TOTAL_SIMULATIONS} (${PERCENT}%)${NC}"
+            
+            if [ "$COMPLETED" -ge "$TOTAL_SIMULATIONS" ]; then
+                break
+            fi
         fi
-        sleep 2
+        sleep 1
     done
 }
 
-echo -e "${YELLOW}[*] Disparando $TOTAL_SIMULATIONS simulações em paralelo ($MAX_JOBS por vez)...${NC}"
-
-# Inicia o painel de progresso em segundo plano (background)
 show_progress &
 PROGRESS_PID=$!
 
@@ -111,10 +106,8 @@ for scenario in 1 2; do
     for nodes in 100 500 1000 2000 5000; do
         for seed in {1..33}; do
             
-            # O "&" no final manda a função rodar solta em background
             run_simulation "$scenario" "$nodes" "$seed" &
             
-            # Trava de segurança: Se já existirem 10 processos rodando, o script pausa
             while [ $(jobs -rp | wc -l) -ge "$MAX_JOBS" ]; do 
                 sleep 0.2 
             done
@@ -123,14 +116,13 @@ for scenario in 1 2; do
     done
 done
 
-# Aguarda pacientemente que todas as simulações em background que restaram cheguem ao fim
 wait
 
-# Para o monitor de progresso
 kill $PROGRESS_PID 2>/dev/null
-echo -e "\r\033[K${GREEN}[✔] Todas as ${TOTAL_SIMULATIONS} simulações foram concluídas!${NC}"
+echo -ne "\r\033[K${GREEN}[✔] Todas as ${TOTAL_SIMULATIONS} simulações da região ${REGION} foram concluídas!${NC}\n"
 
-# Cálculos Finais de Tempo
+rm -f "$PROGRESS_FILE"
+
 CAMPAIGN_END=$(date +%s)
 TOTAL_SECONDS=$((CAMPAIGN_END - CAMPAIGN_START))
 HOURS=$((TOTAL_SECONDS / 3600))
@@ -138,7 +130,8 @@ MINUTES=$(((TOTAL_SECONDS % 3600) / 60))
 SECS=$((TOTAL_SECONDS % 60))
 
 echo -e "\n${GREEN}=======================================================${NC}"
-echo -e "${GREEN}   CAMPANHA ESTATÍSTICA CONCLUÍDA COM SUCESSO!         ${NC}"
-echo -e "${GREEN}   Tempo Total de Processamento: ${HOURS}h ${MINUTES}m ${SECS}s   ${NC}"
-echo -e "${GREEN}   Arquivo Gerado: ${CSV_FILE}                         ${NC}"
+echo -e "${GREEN}   CAMPANHA ${REGION} FINALIZADA!                        ${NC}"
 echo -e "${GREEN}=======================================================${NC}"
+echo -e "Tempo Total de Execução: ${YELLOW}${HOURS}h ${MINUTES}m ${SECS}s${NC}"
+echo -e "Resultados Salvos em:    ${YELLOW}${CSV_FILE}${NC}"
+echo -e "=======================================================\n"
