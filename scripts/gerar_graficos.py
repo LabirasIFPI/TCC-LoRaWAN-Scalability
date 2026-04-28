@@ -4,105 +4,117 @@ import seaborn as sns
 import numpy as np
 import os
 import argparse
+import warnings
+
+# Suprime warnings menores do Seaborn
+warnings.filterwarnings("ignore")
 
 # ==========================================
 # 1. CONFIGURAÇÃO DE DIRETÓRIOS E ARGUMENTOS
 # ==========================================
 BASE_DIR = "/home/labiras/Documents/Nicolas/TCC-LoRaWAN-Scalability/results"
 CSV_DIR = os.path.join(BASE_DIR, "CSV")
-GRAFICOS_DIR = os.path.join(BASE_DIR, "Grafics")
+GRAFICOS_DIR = os.path.join(BASE_DIR, "Graficos")
 
-# Garante que a pasta de gráficos existe
 os.makedirs(GRAFICOS_DIR, exist_ok=True)
 
-parser = argparse.ArgumentParser(description='Gerador de Gráficos LoRaWAN TCC - Suite Completa')
-parser.add_argument('csv_name', type=str, help='Nome do arquivo CSV (ex: resultados_lorawan_BR_2026.csv)')
-parser.add_argument('--region', type=str, choices=['EU', 'BR'], default='BR', help='Região para gerar os gráficos (EU ou BR)')
+parser = argparse.ArgumentParser(description='Gerador de Gráficos LoRaWAN TCC - Análise Estatística')
+parser.add_argument('csv_name', type=str, help='Nome do arquivo CSV')
+parser.add_argument('--region', type=str, choices=['EU', 'BR'], default='BR', help='Região para gerar os gráficos')
 args = parser.parse_args()
 
-# Constrói o caminho completo automaticamente
 if not os.path.dirname(args.csv_name):
     csv_path = os.path.join(CSV_DIR, args.csv_name)
 else:
-    csv_path = args.csv_name # Caso o usuário passe o caminho completo por engano
+    csv_path = args.csv_name 
 
 sns.set_theme(style="whitegrid")
 plt.rcParams.update({'font.size': 12, 'figure.autolayout': True})
 
 # ==========================================
-# 2. CARREGAMENTO E FILTRAGEM DINÂMICA
+# 2. CARREGAMENTO E PREPARAÇÃO
 # ==========================================
 try:
     df = pd.read_csv(csv_path)
 except FileNotFoundError:
     print(f"[!] Arquivo não encontrado: {csv_path}")
-    print(f"[*] Certifique-se de que o arquivo está na pasta: {CSV_DIR}")
     exit(1)
 
-# Filtra dinamicamente pela região escolhida no terminal
-df_region = df[df['Regiao'] == args.region]
+df_region = df[df['Regiao'] == args.region].copy()
 if df_region.empty:
-    print(f"[!] Nenhuma linha encontrada para a região {args.region} no CSV fornecido.")
+    print(f"[!] Nenhuma linha encontrada para a região {args.region}.")
     exit(1)
 
-# Agrupa pelas 33 sementes tirando a média rigorosa (IGNORANDO COLUNAS DE TEXTO)
-df_mean = df_region.groupby(['Cenario', 'Nos']).mean(numeric_only=True).reset_index()
+# Cria labels textuais para o Seaborn criar as legendas automaticamente
+df_region['Cenario_Label'] = df_region['Cenario'].map({1: 'Cenário 1 (Estático)', 2: 'Cenário 2 (ADR)'})
+cores = {'Cenário 1 (Estático)': '#d62728', 'Cenário 2 (ADR)': '#1f77b4'}
 
-df_c1 = df_mean[df_mean['Cenario'] == 1]
-df_c2 = df_mean[df_mean['Cenario'] == 2]
-nos_x = df_c1['Nos'].values
-
-print(f"[*] Processando dados para a Região: {args.region}...")
+print(f"[*] Processando análise estatística (Intervalo de Confiança 95%) para: {args.region}...")
 
 # ==========================================
-# GRÁFICO 1: PDR (Packet Delivery Ratio)
+# GRÁFICOS DE LINHA COM INTERVALO DE CONFIANÇA (95%)
+# O Seaborn calcula a variância das 33 sementes automaticamente (errorbar='ci')
 # ==========================================
+
+# Gráfico 1: PDR
 plt.figure(figsize=(8, 5))
-plt.plot(nos_x, df_c1['PDR_Percent'], marker='o', linestyle='-', linewidth=2, label='Cenário 1 (Estático)', color='#2ca02c')
-plt.plot(nos_x, df_c2['PDR_Percent'], marker='s', linestyle='-', linewidth=2, label='Cenário 2 (ADR)', color='#1f77b4')
-plt.title(f'Taxa de Entrega de Pacotes (PDR) - {args.region}')
+sns.lineplot(data=df_region, x='Nos', y='PDR_Percent', hue='Cenario_Label', style='Cenario_Label', 
+             markers=['o', 's'], dashes=False, palette=cores, errorbar=('ci', 95), linewidth=2)
+plt.title(f'Taxa de Entrega de Pacotes (PDR) com IC de 95% - {args.region}')
 plt.xlabel('Número de Nós na Rede')
 plt.ylabel('PDR (%)')
-plt.xticks(nos_x)
-plt.legend()
+plt.xticks(sorted(df_region['Nos'].unique()))
+plt.legend(title='Estratégia')
 plt.savefig(os.path.join(GRAFICOS_DIR, f'grafico_1_PDR_{args.region}.png'), dpi=300)
 plt.close()
 
-# ==========================================
-# GRÁFICO 2: CONSUMO MÉDIO DE ENERGIA
-# ==========================================
+# Gráfico 2: ENERGIA
 plt.figure(figsize=(8, 5))
-plt.plot(nos_x, df_c1['EnergiaMedia_J'], marker='o', linestyle='-', linewidth=2, label='Cenário 1 (Estático)', color='#d62728')
-plt.plot(nos_x, df_c2['EnergiaMedia_J'], marker='s', linestyle='-', linewidth=2, label='Cenário 2 (ADR)', color='#9467bd')
-plt.title(f'Consumo Médio de Energia por Nó - {args.region}')
+sns.lineplot(data=df_region, x='Nos', y='EnergiaMedia_J', hue='Cenario_Label', style='Cenario_Label', 
+             markers=['o', 's'], dashes=False, palette=cores, errorbar=('ci', 95), linewidth=2)
+plt.title(f'Consumo Médio de Energia por Nó com IC de 95% - {args.region}')
 plt.xlabel('Número de Nós na Rede')
 plt.ylabel('Energia Consumida (Joules)')
-plt.xticks(nos_x)
-plt.legend()
+plt.xticks(sorted(df_region['Nos'].unique()))
+plt.legend(title='Estratégia')
 plt.savefig(os.path.join(GRAFICOS_DIR, f'grafico_2_Energia_{args.region}.png'), dpi=300)
 plt.close()
 
-# ==========================================
-# GRÁFICO 3: LATÊNCIA MÉDIA
-# ==========================================
+# Gráfico 3: LATÊNCIA
 plt.figure(figsize=(8, 5))
-plt.plot(nos_x, df_c1['LatenciaMedia_s'], marker='o', linestyle='-', linewidth=2, label='Cenário 1 (Estático)', color='#8c564b')
-plt.plot(nos_x, df_c2['LatenciaMedia_s'], marker='s', linestyle='-', linewidth=2, label='Cenário 2 (ADR)', color='#e377c2')
-plt.title(f'Latência Média de Comunicação - {args.region}')
+sns.lineplot(data=df_region, x='Nos', y='LatenciaMedia_s', hue='Cenario_Label', style='Cenario_Label', 
+             markers=['o', 's'], dashes=False, palette=cores, errorbar=('ci', 95), linewidth=2)
+plt.title(f'Latência Média de Comunicação com IC de 95% - {args.region}')
 plt.xlabel('Número de Nós na Rede')
 plt.ylabel('Tempo (Segundos)')
-plt.xticks(nos_x)
-plt.legend()
+plt.xticks(sorted(df_region['Nos'].unique()))
+plt.legend(title='Estratégia')
 plt.savefig(os.path.join(GRAFICOS_DIR, f'grafico_3_Latencia_{args.region}.png'), dpi=300)
 plt.close()
 
-# ==========================================
-# GRÁFICO 4: DISTRIBUIÇÃO DE SF (Cenário 2 - ADR)
-# ==========================================
-plt.figure(figsize=(10, 6))
-bar_width = 0.6
-index = np.arange(len(nos_x))
+# Gráfico 5: JAIN INDEX
+plt.figure(figsize=(8, 5))
+sns.lineplot(data=df_region, x='Nos', y='JainIndex', hue='Cenario_Label', style='Cenario_Label', 
+             markers=['o', 's'], dashes=False, palette=cores, errorbar=('ci', 95), linewidth=2)
+plt.title(f'Índice de Justiça de Jain com IC de 95% - {args.region}')
+plt.xlabel('Número de Nós na Rede')
+plt.ylabel('Jain Index (0 a 1)')
+plt.xticks(sorted(df_region['Nos'].unique()))
+plt.legend(title='Estratégia')
+plt.savefig(os.path.join(GRAFICOS_DIR, f'grafico_5_Jain_{args.region}.png'), dpi=300)
+plt.close()
 
+# ==========================================
+# GRÁFICOS DE BARRAS EMPILHADAS (Usam a Média Estrita)
+# ==========================================
+df_mean = df_region.groupby(['Cenario', 'Nos']).mean(numeric_only=True).reset_index()
+df_c2 = df_mean[df_mean['Cenario'] == 2]
+nos_x = df_c2['Nos'].values
+index = np.arange(len(nos_x))
+bar_width = 0.6
+
+# Gráfico 4: DISTRIBUIÇÃO SF (Cenário 2 - ADR)
+plt.figure(figsize=(10, 6))
 sf7 = df_c2['DR5_SF7'].values
 sf8 = df_c2['DR4_SF8'].values
 sf9 = df_c2['DR3_SF9'].values
@@ -125,32 +137,15 @@ plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
 plt.savefig(os.path.join(GRAFICOS_DIR, f'grafico_4_Dist_SF_ADR_{args.region}.png'), dpi=300, bbox_inches='tight')
 plt.close()
 
-# ==========================================
-# GRÁFICO 5: ÍNDICE DE JUSTIÇA DE JAIN
-# ==========================================
-plt.figure(figsize=(8, 5))
-plt.plot(nos_x, df_c1['JainIndex'], marker='o', linestyle='-', linewidth=2, label='Cenário 1 (Estático)', color='#d62728')
-plt.plot(nos_x, df_c2['JainIndex'], marker='s', linestyle='-', linewidth=2, label='Cenário 2 (ADR)', color='#1f77b4')
-plt.title(f'Índice de Justiça de Jain - Padrão {args.region}')
-plt.xlabel('Número de Nós na Rede')
-plt.ylabel('Jain Index (0 a 1)')
-plt.xticks(nos_x)
-plt.legend()
-plt.savefig(os.path.join(GRAFICOS_DIR, f'grafico_5_Jain_{args.region}.png'), dpi=300)
-plt.close()
-
-# ==========================================
-# GRÁFICO 6: RAIO-X DE PERDAS (Colisão vs Sinal) - Cenário 2
-# ==========================================
+# Gráfico 6: CAUSAS DE PERDA (Cenário 2)
 colisoes = df_c2['PerdasColisaoExt'].values
 sinal_fraco = df_c2['PerdasSinalFracoExt'].values
+saturacao = df_c2['PerdasSaturacaoExt'].values
 
 plt.figure(figsize=(8, 5))
-bar_width = 0.5
-index = np.arange(len(nos_x))
-
 plt.bar(index, sinal_fraco, bar_width, label='Sinal Fraco (Abaixo Sensibilidade)', color='#ff7f0e', alpha=0.8)
-plt.bar(index, colisoes, bar_width, bottom=sinal_fraco, label='Colisão (ALOHA e Interferência)', color='#d62728', alpha=0.8)
+plt.bar(index, saturacao, bar_width, bottom=sinal_fraco, label='Saturação (Sem Demoduladores)', color='#8c564b', alpha=0.8)
+plt.bar(index, colisoes, bar_width, bottom=sinal_fraco+saturacao, label='Colisão (ALOHA no Ar)', color='#d62728', alpha=0.8)
 
 plt.title(f'Causas de Perda de Pacotes no Cenário 2 (ADR) - {args.region}')
 plt.xlabel('Número de Nós na Rede')
@@ -160,4 +155,4 @@ plt.legend()
 plt.savefig(os.path.join(GRAFICOS_DIR, f'grafico_6_Perdas_Stacked_{args.region}.png'), dpi=300)
 plt.close()
 
-print(f"[+] Todos os 6 gráficos foram gerados com sucesso na pasta {GRAFICOS_DIR}!")
+print(f"[+] Todos os 6 gráficos estatísticos gerados com sucesso na pasta {GRAFICOS_DIR}!")

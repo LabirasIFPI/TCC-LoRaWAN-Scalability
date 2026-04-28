@@ -20,7 +20,20 @@ else
         cp "$NS3_DIR/lora-tcc-nicolas.cc" "$REPO_DIR/src/"
         echo "[✔] lora-tcc-nicolas.cc sincronizado da raiz com sucesso."
     else
-        echo "[!] Arquivo C++ não encontrado no diretório do NS-3!"
+        echo "[!] Arquivo lora-tcc-nicolas.cc não encontrado no diretório do NS-3!"
+    fi
+fi
+
+# Puxa o código fonte C++ de Validação (64 canais físicos)
+if [ -f "$NS3_DIR/scratch/lora-tcc-validacao-au915.cc" ]; then
+    cp "$NS3_DIR/scratch/lora-tcc-validacao-au915.cc" "$REPO_DIR/src/"
+    echo "[✔] lora-tcc-validacao-au915.cc sincronizado com sucesso."
+else
+    if [ -f "$NS3_DIR/lora-tcc-validacao-au915.cc" ]; then
+        cp "$NS3_DIR/lora-tcc-validacao-au915.cc" "$REPO_DIR/src/"
+        echo "[✔] lora-tcc-validacao-au915.cc sincronizado da raiz com sucesso."
+    else
+        echo "[!] Arquivo de validação C++ não encontrado no diretório do NS-3!"
     fi
 fi
 
