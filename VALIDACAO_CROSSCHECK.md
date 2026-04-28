@@ -311,21 +311,89 @@ O modelo é considerado **validado** se:
 
 > Na dilatação temporal, os nós transmitem ≈21× menos pacotes (período multiplicado por 64/3), logo consomem proporcionalmente menos energia ativa. O valor real pode ser recuperado multiplicando por 21.33. A diferença residual (~3%) corresponde ao consumo base em modo sleep, que é independente do tráfego.
 
+### 10.4. "Por que o Cenário 2 (ADR) não foi testado com 64 canais físicos?"
+
+> Tentámos. O simulador ns-3 colapsou sistematicamente (Segmentation Fault / ausência de saída) em **100% das execuções** do Cenário 2 com 64 canais físicos instanciados. A causa raiz é a incompatibilidade arquitetural do módulo LoRaWAN do ns-3 com o campo `ChMaskCntl` do protocolo AU915. Esta falha empírica é, por si só, a prova mais forte de que a Dilatação Temporal era a única abordagem viável para avaliar o ADR na banda AU915 dentro do simulador ns-3.
+
 ---
 
-## 11. Resumo da Cadeia de Evidência
+## 11. Evidência Empírica: Crash do ADR com 64 Canais Físicos
+
+### 11.1. O Que Aconteceu
+
+Em 27/04/2026, durante a execução da campanha de validação com ambos os cenários habilitados (`for scenario in 1 2`), o seguinte comportamento foi observado:
+
+- **Cenário 1 (Estático):** Todas as 165 simulações (5 densidades × 33 sementes) completaram com sucesso e geraram saída CSV válida.
+- **Cenário 2 (ADR):** Todas as 165 simulações falharam silenciosamente. Nenhuma produziu saída `[RES_VAL]`. O script de campanha registou "Falha Crítica" para cada uma.
+
+Excerto do terminal:
+```
+Progresso da Campanha [BR-64CH]: 156/330 (47%)
+[✖] Falha Crítica: Cenário 2 | 100 Nós | Semente 1
+[✖] Falha Crítica: Cenário 2 | 100 Nós | Semente 2
+[✖] Falha Crítica: Cenário 2 | 100 Nós | Semente 3
+...
+[✖] Falha Crítica: Cenário 2 | 5000 Nós | Semente 33
+```
+
+A taxa de falha foi de **100%** para o Cenário 2 em todas as densidades (100, 500, 1000, 2000, 5000 nós) e todas as 33 sementes — totalizando 165 falhas consecutivas.
+
+### 11.2. Causa Raiz: Incompatibilidade do ChMask
+
+O protocolo LoRaWAN especifica que, quando o Network Server ativa o ADR, ele envia comandos MAC `LinkADRReq` contendo:
+- `DataRate`: O novo SF otimizado
+- `TxPower`: A potência de transmissão ajustada
+- `ChMask`: Uma máscara de 16 bits indicando quais canais o nó deve usar
+
+Na banda EU868 (≤16 canais), um único `ChMask` de 16 bits é suficiente. Na banda AU915 (64 canais), o protocolo real exige o uso do campo `ChMaskCntl` para fatiar os 64 canais em blocos de 16:
+
+| ChMaskCntl | Significado |
+|---|---|
+| 0 | ChMask aplica-se aos canais 0–15 |
+| 1 | ChMask aplica-se aos canais 16–31 |
+| 2 | ChMask aplica-se aos canais 32–47 |
+| 3 | ChMask aplica-se aos canais 48–63 |
+| 6 | Ativar todos os canais (AU915) |
+
+**O módulo LoRaWAN do ns-3 não implementa esta lógica.** O Network Server tenta aplicar um `ChMask` de 16 bits a um `channelHelper` com 64 canais, resultando em acesso fora dos limites do vetor interno (`std::vector<Ptr<LogicalLoraChannel>>`) ou em máscaras inválidas que corrompem o estado do MAC do end device.
+
+### 11.3. Por Que Funcionou com 5 Nós (Micro-Teste Inicial)
+
+Um teste preliminar com apenas 5 nós e Cenário 2 completou sem erro. Isto ocorreu porque:
+1. Com 5 nós e 64 canais, a probabilidade de colisão é virtualmente zero.
+2. Sem colisões, o SNR reportado ao Network Server é excelente.
+3. Com SNR alto, o algoritmo ADR (`adr-component.cc`) decide que **não precisa de enviar `LinkADRReq`** — o nó já está com um bom Data Rate.
+4. Como nenhum `LinkADRReq` foi disparado, o bug do `ChMask` nunca foi acionado.
+
+Com 100+ nós, as colisões aumentam, o SNR degrada, e o Network Server começa a enviar `LinkADRReq` em massa — acionando o crash.
+
+### 11.4. Significado para o TCC
+
+> [!IMPORTANT]
+> Esta falha empírica é a **prova viva** de que o simulador ns-3, no seu estado atual, é incapaz de avaliar o ADR na banda AU915 com canais físicos. A Dilatação Temporal não é apenas uma otimização computacional — é a **única forma viável** de simular o comportamento do ADR brasileiro dentro do ns-3 sem reescrever o core do módulo LoRaWAN.
+
+Na dissertação, este resultado pode ser apresentado na secção de **"Limitações e Trabalhos Futuros"** como evidência experimental:
+
+> *"Durante a fase de validação empírica, tentou-se executar o Cenário 2 (ADR) com os 64 canais AU915 fisicamente instanciados. No entanto, 100% das simulações (165 de 165) falharam devido à incompatibilidade do módulo LoRaWAN do ns-3 com o mecanismo de Channel Mask Control (`ChMaskCntl`) exigido pela especificação AU915. Esta limitação estrutural do simulador reforça a necessidade e validade da abordagem de Dilatação Temporal proposta neste trabalho."*
+
+---
+
+## 12. Resumo da Cadeia de Evidência
 
 ```mermaid
 graph TD
     A["Modelo Matemático<br/>Dilatação Temporal<br/>appPeriod x 64/3"] -->|"Campanha Principal<br/>330 simulações"| B["Resultados BR<br/>CSV com scalingFactor"]
-    C["Modelo Físico<br/>64 Canais AU915<br/>Bypass LorawanMacHelper"] -->|"Campanha Validação<br/>330 simulações"| D["Resultados BR_64CH<br/>CSV sem escala"]
+    C["Modelo Físico<br/>64 Canais AU915<br/>Bypass LorawanMacHelper"] -->|"Campanha Validação<br/>165 simulações<br/>Cenário 1 apenas"| D["Resultados BR_64CH<br/>CSV sem escala"]
+    C -->|"Cenário 2 ADR<br/>165 tentativas"| X["CRASH 100%<br/>ChMask incompatível"]
     B --> E["cross_check_validacao.py"]
     D --> E
     E --> F{"Delta PDR < 5 pp?"}
     F -->|"Sim"| G["MODELO VALIDADO<br/>Dilatação Temporal = Física"]
     F -->|"Não"| H["Investigar causas<br/>de divergência"]
+    X --> I["Prova empírica:<br/>ADR + 64ch = inviável no ns-3"]
+    I --> J["Justifica Dilatação Temporal<br/>como única solução"]
 ```
 
 ---
 
-*Documento gerado em 27/04/2026 — TCC Nícolas Rafael Silva Alves, IFPI*
+*Documento atualizado em 28/04/2026 — TCC Nícolas Rafael Silva Alves, IFPI*

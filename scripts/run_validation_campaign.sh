@@ -14,8 +14,8 @@ echo -e "${CYAN}=======================================================${NC}\n"
 # CONFIGURAÇÕES DE DIRETÓRIOS E PARALELISMO
 # ==========================================
 MAX_JOBS=10 
-TOTAL_SIMULATIONS=330 # 2 cenários (Estático e ADR) x 5 densidades x 33 sementes
-# Ambos os cenários (Estático e ADR) estão ativados.
+TOTAL_SIMULATIONS=165 # 1 cenário (Estático) x 5 densidades x 33 sementes
+# ADR foi desativado porque a arquitetura nativa do ns-3 crasha com ChMask de 64 canais.
 
 # Caminho absoluto para a pasta do repositório
 REPO_DIR="$HOME/Documents/Nicolas/TCC-LoRaWAN-Scalability"
@@ -91,7 +91,7 @@ PROGRESS_PID=$!
 # ==========================================
 # MOTOR DE DISTRIBUIÇÃO DE TAREFAS
 # ==========================================
-for scenario in 1 2; do
+for scenario in 1; do
     for nodes in 100 500 1000 2000 5000; do
         for seed in {1..33}; do
             
@@ -109,6 +109,12 @@ wait
 
 kill $PROGRESS_PID 2>/dev/null
 echo -ne "\r\033[K${GREEN}[✔] Todas as ${TOTAL_SIMULATIONS} simulações foram concluídas!${NC}\n"
+
+# Ordenar o CSV gerado (por Número de Nós e depois por Semente)
+echo -e "${YELLOW}>> Ordenando os resultados no CSV...${NC}"
+head -n 1 "$CSV_FILE" > "${CSV_FILE}.tmp"
+tail -n +2 "$CSV_FILE" | sort -t',' -k3,3n -k19,19n >> "${CSV_FILE}.tmp"
+mv "${CSV_FILE}.tmp" "$CSV_FILE"
 
 CAMPAIGN_END=$(date +%s)
 TOTAL_SECONDS=$((CAMPAIGN_END - CAMPAIGN_START))

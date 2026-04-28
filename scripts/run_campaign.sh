@@ -120,7 +120,13 @@ done
 wait
 
 kill $PROGRESS_PID 2>/dev/null
-echo -ne "\r\033[K${GREEN}[✔] Todas as ${TOTAL_SIMULATIONS} simulações da região ${REGION} foram concluídas!${NC}\n"
+echo -ne "\r\033[K${GREEN}[✔] Todas as ${TOTAL_SIMULATIONS} simulações da Região ${REGION} foram concluídas!${NC}\n"
+
+# Ordenar o CSV gerado (por Cenário, depois por Número de Nós, depois por Semente)
+echo -e "${YELLOW}>> Ordenando os resultados no CSV...${NC}"
+head -n 1 "$CSV_FILE" > "${CSV_FILE}.tmp"
+tail -n +2 "$CSV_FILE" | sort -t',' -k2,2n -k3,3n -k19,19n >> "${CSV_FILE}.tmp"
+mv "${CSV_FILE}.tmp" "$CSV_FILE"
 
 CAMPAIGN_END=$(date +%s)
 TOTAL_SECONDS=$((CAMPAIGN_END - CAMPAIGN_START))
