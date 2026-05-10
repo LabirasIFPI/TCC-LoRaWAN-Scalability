@@ -354,6 +354,7 @@ int main(int argc, char* argv[]) {
 
     std::cout << "[RES]," << region << "," << scenario << "," << nNodes << "," << totalConsumed << "," << avgEnergy
               << "," << globalPdr << "," << jainIndex << "," << execTimeSecs << "," << avgLatency
+              << "," << (long)(globalSent * scalingFactor) << "," << (long)(globalRecv * scalingFactor)
               << "," << (long)(realAlohaCollisions * scalingFactor) << "," << (long)(dropsUnderSensitivity * scalingFactor) 
               << "," << (long)(dropsNoReceivers * scalingFactor) 
               << "," << drCount[0] << "," << drCount[1] << "," << drCount[2] 

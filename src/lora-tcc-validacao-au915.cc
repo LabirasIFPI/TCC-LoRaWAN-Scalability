@@ -28,6 +28,7 @@
 #include "ns3/propagation-module.h"
 
 #include <chrono>
+#include <iomanip>
 #include <iostream>
 #include <map>
 #include <numeric>
@@ -424,9 +425,11 @@ int main(int argc, char* argv[]) {
     std::cout << "=======================================================" << std::endl;
 
     // Saída CSV compatível com o formato da campanha principal
-    // Formato: [RES_VAL],Regiao,Cenario,Nos,EnergiaTotal,EnergiaMédia,PDR,Jain,TempoExec,Latencia,Colisoes,SinalFraco,Saturacao,DR0..DR5
+    // Formato: [RES_VAL],Regiao,Cenario,Nos,EnergiaTotal,EnergiaMédia,PDR,Jain,TempoExec,Latencia,Enviados,Recebidos,Colisoes,SinalFraco,Saturacao,DR0..DR5
+    std::cout << std::fixed << std::setprecision(6);
     std::cout << "[RES_VAL],BR_64CH," << scenario << "," << nNodes << "," << totalConsumed << "," << avgEnergy
               << "," << globalPdr << "," << jainIndex << "," << execTimeSecs << "," << avgLatency
+              << "," << (long)globalSent << "," << (long)globalRecv
               << "," << realAlohaCollisions << "," << dropsUnderSensitivity
               << "," << dropsNoReceivers
               << "," << drCount[0] << "," << drCount[1] << "," << drCount[2]

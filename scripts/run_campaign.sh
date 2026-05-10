@@ -39,6 +39,9 @@ LOGS_DIR="$REPO_DIR/results/logs"
 mkdir -p "$CSV_DIR"
 mkdir -p "$LOGS_DIR"
 
+NS3_DIR="$HOME/Documents/Nicolas/ns-allinone-3.45/ns-3.45"
+cd "$NS3_DIR" || { echo -e "${RED}[!] Erro: Diretório do ns-3 não encontrado em $NS3_DIR${NC}"; exit 1; }
+
 echo -e "${YELLOW}>> Recompilando o código fonte C++...${NC}"
 ./ns3 build lora-tcc-nicolas 1>/dev/null 2>&1
 echo -e "${GREEN}[✔] Compilação concluída!${NC}\n"
@@ -46,7 +49,7 @@ echo -e "${GREEN}[✔] Compilação concluída!${NC}\n"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 CSV_FILE="$CSV_DIR/resultados_lorawan_${REGION}_${TIMESTAMP}.csv"
 
-echo "Regiao,Cenario,Nos,EnergiaTotalExt_J,EnergiaMedia_J,PDR_Percent,JainIndex,TempoExec_s,LatenciaMedia_s,PerdasColisaoExt,PerdasSinalFracoExt,PerdasSaturacaoExt,DR0_SF12,DR1_SF11,DR2_SF10,DR3_SF9,DR4_SF8,DR5_SF7,Semente" > "$CSV_FILE"
+echo "Regiao,Cenario,Nos,EnergiaTotalExt_J,EnergiaMedia_J,PDR_Percent,JainIndex,TempoExec_s,LatenciaMedia_s,Enviados,Recebidos,PerdasColisaoExt,PerdasSinalFracoExt,PerdasSaturacaoExt,DR0_SF12,DR1_SF11,DR2_SF10,DR3_SF9,DR4_SF8,DR5_SF7,Semente" > "$CSV_FILE"
 
 CAMPAIGN_START=$(date +%s)
 
@@ -87,7 +90,15 @@ show_progress() {
             if [ "$COMPLETED" -lt 0 ]; then COMPLETED=0; fi
 
             PERCENT=$((COMPLETED * 100 / TOTAL_SIMULATIONS))
-            echo -ne "\r${YELLOW}Progresso da Campanha [${REGION}]: ${COMPLETED}/${TOTAL_SIMULATIONS} (${PERCENT}%)${NC}"
+            
+            CURRENT_TIME=$(date +%s)
+            ELAPSED=$((CURRENT_TIME - CAMPAIGN_START))
+            ELAPSED_H=$((ELAPSED / 3600))
+            ELAPSED_M=$(((ELAPSED % 3600) / 60))
+            ELAPSED_S=$((ELAPSED % 60))
+            TIME_STR=$(printf "%02d:%02d:%02d" $ELAPSED_H $ELAPSED_M $ELAPSED_S)
+
+            echo -ne "\r${YELLOW}Progresso [${REGION}]: ${COMPLETED}/${TOTAL_SIMULATIONS} (${PERCENT}%) | Tempo Decorrido: ${TIME_STR}${NC}"
             
             if [ "$COMPLETED" -ge "$TOTAL_SIMULATIONS" ]; then
                 break
@@ -125,7 +136,7 @@ echo -ne "\r\033[K${GREEN}[✔] Todas as ${TOTAL_SIMULATIONS} simulações da Re
 # Ordenar o CSV gerado (por Cenário, depois por Número de Nós, depois por Semente)
 echo -e "${YELLOW}>> Ordenando os resultados no CSV...${NC}"
 head -n 1 "$CSV_FILE" > "${CSV_FILE}.tmp"
-tail -n +2 "$CSV_FILE" | sort -t',' -k2,2n -k3,3n -k19,19n >> "${CSV_FILE}.tmp"
+tail -n +2 "$CSV_FILE" | sort -t',' -k2,2n -k3,3n -k21,21n >> "${CSV_FILE}.tmp"
 mv "${CSV_FILE}.tmp" "$CSV_FILE"
 
 CAMPAIGN_END=$(date +%s)
