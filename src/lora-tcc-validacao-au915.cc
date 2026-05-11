@@ -45,6 +45,7 @@ int appPeriod = 600;             // 10 minutos (1:1, SEM dilatação temporal)
 double txPower = 30.0;           // AU915: 30 dBm (1 W EIRP)
 int scenario = 1;                // 1 = Estático, 2 = ADR
 std::string region = "BR";       // Fixado em BR (AU915) para este teste
+int nChannels = 64;              // Novo: Permite testar 3, 16 ou 64 canais físicos
 bool enableAnim = false;         // Para compatibilidade com o script de execução
 
 // Mapas de Rastreamento
@@ -106,20 +107,20 @@ void OnRxPacket(Ptr<const Packet> packet) {
 // com 64 canais AU915 (902.3 + 0.2*k MHz, k=0..63).
 // =========================================================================
 Ptr<LogicalLoraChannelHelper>
-CreateAu915ChannelHelper()
+CreateAu915ChannelHelper(int numChannels)
 {
-    // Criar helper com espaço para 64 canais uplink
-    auto channelHelper = Create<LogicalLoraChannelHelper>(64);
+    // Criar helper com espaço para numChannels uplink
+    auto channelHelper = Create<LogicalLoraChannelHelper>(numChannels);
 
     // Sub-band AU915 uplink: 902.3 - 914.9 MHz
     // Duty cycle = 1.0 (100%) — AU915 não tem restrição de duty cycle severa
     // MaxTxPower = 30 dBm (1 W EIRP para AU915)
     channelHelper->AddSubBand(Create<SubBand>(902000000, 915000000, 1.0, 30));
 
-    // Instanciar os 64 canais uplink AU915
+    // Instanciar os canais uplink AU915
     // Frequência base: 902.3 MHz, espaçamento: 200 kHz
-    // f(k) = 902300000 + k * 200000 Hz, para k = 0..63
-    for (uint8_t k = 0; k < 64; ++k)
+    // f(k) = 902300000 + k * 200000 Hz
+    for (uint8_t k = 0; k < numChannels; ++k)
     {
         uint32_t freq = 902300000 + k * 200000;
         // DR0 (SF12) a DR5 (SF7) — mesma tabela EU868 (coincide com AU915 DR0-DR5)
@@ -137,6 +138,7 @@ int main(int argc, char* argv[]) {
     cmd.AddValue("radius", "Raio da rede em metros", radius);
     cmd.AddValue("simulationTime", "Tempo de simulação em segundos", simulationTime);
     cmd.AddValue("scenario", "1=Estático, 2=ADR", scenario);
+    cmd.AddValue("nChannels", "Número de canais físicos (ex: 3, 16, 64)", nChannels);
     cmd.AddValue("region", "EU (Europa) ou BR (Brasil)", region);
     cmd.AddValue("enableAnim", "Habilitar NetAnim (true/false)", enableAnim);
     cmd.Parse(argc, argv);
@@ -151,7 +153,7 @@ int main(int argc, char* argv[]) {
     std::cout << "  - Qtd. de Nós:    " << nNodes << " dispositivos" << std::endl;
     std::cout << "  - Tempo Total:    " << simulationTime << "s (" << FormatSimulationTime(simulationTime) << ")" << std::endl;
     std::cout << "  - Período App:    " << appPeriod << "s (1:1, SEM dilatação)" << std::endl;
-    std::cout << "  - Canais Uplink:  64 (902.3 a 914.9 MHz, 200 kHz step)" << std::endl;
+    std::cout << "  - Canais Uplink:  " << nChannels << " (frequências AU915)" << std::endl;
     std::cout << "-------------------------------------------------------" << std::endl;
 
     double centerX = radius;
@@ -226,8 +228,8 @@ int main(int argc, char* argv[]) {
         // Resetar reception paths do EU padrão
         gwPhy->ResetReceptionPaths();
 
-        // Adicionar todas as 64 frequências AU915 ao gateway
-        for (uint8_t k = 0; k < 64; ++k)
+        // Adicionar as frequências AU915 ao gateway conforme nChannels
+        for (uint8_t k = 0; k < nChannels; ++k)
         {
             uint32_t freq = 902300000 + k * 200000;
             gwPhy->AddFrequency(freq);
@@ -239,9 +241,9 @@ int main(int argc, char* argv[]) {
             gwPhy->AddReceptionPath();
         }
 
-        // Sobrescrever o channelHelper do GW MAC para AU915
+        // Sobrescrever o channelHelper do GW MAC
         Ptr<GatewayLorawanMac> gwMac = gwNetDev->GetMac()->GetObject<GatewayLorawanMac>();
-        gwMac->SetLogicalLoraChannelHelper(CreateAu915ChannelHelper());
+        gwMac->SetLogicalLoraChannelHelper(CreateAu915ChannelHelper(nChannels));
     }
 
     // ========================
@@ -264,8 +266,8 @@ int main(int argc, char* argv[]) {
         uint32_t uniqueDevAddr = node->GetId() + 1;
         mac->SetDeviceAddress(LoraDeviceAddress(uniqueDevAddr));
 
-        // *** SOBRESCREVER channelHelper com AU915 de 64 canais ***
-        mac->SetLogicalLoraChannelHelper(CreateAu915ChannelHelper());
+        // *** SOBRESCREVER channelHelper com número de canais configurado ***
+        mac->SetLogicalLoraChannelHelper(CreateAu915ChannelHelper(nChannels));
 
         // Alocação estática de SF por distância (mesmos limiares da campanha)
         mac->SetMType(LorawanMacHeader::UNCONFIRMED_DATA_UP);

@@ -46,6 +46,7 @@ double simulationTime = 86400.0; // 24 horas - JUSTIFICATIVA: Tempo necessário 
 int scenario = 1;                // 1 = Estático, 2 = ADR
 int appPeriod = 600;             // 10 minutos
 std::string region = "EU";       // EU ou BR
+int nChannels = 64;              // Novo: Número de canais emulados para BR
 bool enableAnim = false;         // Ativar NetAnim
 
 // Mapas de Rastreamento
@@ -106,6 +107,7 @@ int main(int argc, char* argv[]) {
     cmd.AddValue("radius", "Raio da rede em metros", radius);
     cmd.AddValue("simulationTime", "Tempo de simulação em segundos (padrão: 86400s = 24h)", simulationTime);
     cmd.AddValue("scenario", "1=Estático, 2=ADR", scenario);
+    cmd.AddValue("nChannels", "Número de canais a emular no BR (ex: 16, 64)", nChannels);
     cmd.AddValue("region", "EU (Europa) ou BR (Brasil)", region);
     cmd.AddValue("enableAnim", "Habilitar NetAnim (true/false)", enableAnim); 
     cmd.Parse(argc, argv);
@@ -115,15 +117,15 @@ int main(int argc, char* argv[]) {
     double txPower = (region == "BR") ? 30.0 : 14.0; 
 
     if (region == "BR") {
-        simulatedAppPeriod = appPeriod * (64.0 / 3.0);
-        scalingFactor = (64.0 / 3.0);
+        simulatedAppPeriod = appPeriod * (static_cast<double>(nChannels) / 3.0);
+        scalingFactor = (static_cast<double>(nChannels) / 3.0);
     }
 
     std::cout << "\n=======================================================" << std::endl;
     std::cout << "  INICIANDO SIMULAÇÃO: TCC NÍCOLAS RAFAEL (LoRaWAN)" << std::endl;
     std::cout << "=======================================================" << std::endl;
     std::cout << "  - Cenário:        " << (scenario == 1 ? "1 (Estático)" : "2 (ADR)") << std::endl;
-    std::cout << "  - Região:         " << (region == "BR" ? "Brasil (AU915 - 64 Canais, 30dBm)" : "Europa (EU868 - 3 Canais, 14dBm)") << std::endl;
+    std::cout << "  - Região:         " << (region == "BR" ? "Brasil (AU915 - Emulando " + std::to_string(nChannels) + " Canais)" : "Europa (EU868 - 3 Canais)") << std::endl;
     std::cout << "  - Potência TX:    " << txPower << " dBm" << std::endl;
     std::cout << "  - Qtd. de Nós:    " << nNodes << " dispositivos reais no mapa" << std::endl;
     std::cout << "  - Tempo Total:    " << simulationTime << "s (" << FormatSimulationTime(simulationTime) << ")" << std::endl;
