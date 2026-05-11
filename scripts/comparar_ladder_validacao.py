@@ -95,6 +95,14 @@ def main():
         print(f" Delta PDR: {delta:.2f}%")
         if delta < 1.0: print(" STATUS: CONVERGÊNCIA EXCELENTE")
         else: print(" STATUS: DIVERGÊNCIA FÍSICA IDENTIFICADA")
+
+        # Sanity Check de Energia (24h)
+        if simTime == "86400":
+            avg_e = res_phy['Energia_Media'] if res_phy != "CRASH" else res_dil['Energia_Media'] * (int(nChannels)/3.0)
+            print(f"\n [SANITY CHECK] Energia Média (24h): {avg_e:.4f} J")
+            if avg_e < 0.01: print("  ⚠️ AVISO: Consumo irrealmente baixo.")
+            elif avg_e > 50.0: print("  ⚠️ AVISO: Consumo irrealmente alto.")
+            else: print("  ✅ Consumo dentro da ordem de grandeza esperada.")
     else:
         print(" [!] ERRO: Não foi possível realizar a comparação.")
     print(f"{'='*60}\n")

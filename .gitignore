@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+
+# ns-3
+build/
+cmake-cache/
+CMakeFiles/
+*.log
+*.pcap
+*.tr
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Results (keep summaries, ignore raw heavy logs)
+results/logs/
