@@ -50,9 +50,9 @@ A dilatação reduz o volume de pacotes simulados por um fator de ~21.3×, mas p
 |----:|---:|---:|---:|---:|---:|---|
 | **100** | 99.60% ± 0.19 | 99.65% ± 0.04 | **0.05** | 0.9982 | 0.9999 | ✅ Convergente |
 | **500** | 98.54% ± 0.15 | 98.37% ± 0.07 | **0.17** | 0.9937 | 0.9992 | ✅ Convergente |
-| **1.000** | 96.82% ± 0.16 | 96.08% ± 0.17 | **0.75** | 0.9882 | 0.9908 | ✅ Convergente |
-| **2.000** | 94.09% ± 0.16 | 82.71% ± 0.25 | **11.38** | 0.9569 | 0.8753 | ❌ Divergente |
-| **5.000** | 86.02% ± 0.15 | 41.66% ± 0.21 | **44.36** | 0.9291 | 0.4746 | ❌ Divergente |
+| **1.000** | 96.82% ± 0.16 | 96.08% ± 0.17 | **0.75** | 0.9882 | 0.9907 | ✅ Convergente |
+| **2.000** | 94.09% ± 0.16 | 82.71% ± 0.25 | **11.38** | 0.9729 | 0.8760 | ❌ Divergente |
+| **5.000** | 86.02% ± 0.15 | 41.64% ± 0.21 | **44.39** | 0.9291 | 0.4743 | ❌ Divergente |
 
 ### 3.2. Validação Confirmada (N ≤ 1.000)
 
@@ -175,19 +175,19 @@ A mesma semente produz a mesma distribuição espacial de nós e, consequentemen
 
 ## 6. Conclusões
 
-### 6.1. Modelo de Dilatação Temporal: Validado com Ressalvas
+### 6.2. O Divergir da Curva: Da Matemática à Física de Rádio
 
-| Faixa de Densidade | Δ PDR Máximo | Validade |
-|---|---|---|
-| **N ≤ 1.000** | ≤ 0.75 pp | ✅ **Totalmente válido** — equivalência estatística comprovada |
-| **N = 2.000** | 11.38 pp | ⚠️ **Parcialmente válido** — divergência significativa mas tendência preservada |
-| **N ≥ 5.000** | 44.36 pp | ❌ **Não válido** — saturação de hardware domina o comportamento |
+A validação empírica revelou que, embora a dilatação temporal resolva com perfeição a **contenção temporal** (camada MAC baseada em ALOHA), ela é inerentemente otimista em cenários de IoT massivo (N ≥ 2.000). 
 
-### 6.2. Causa da Divergência
+A causa científica desta divergência reside na **Interferência Inter-Canal e Co-SF (Co-Spreading Factor)**. Enquanto o modelo matemático assume que canais diferentes são isolados, o simulador NS-3 calcula a recepção baseada no **SNIR (Signal-to-Interference-plus-Noise Ratio)**. 
 
-O modelo de dilatação temporal preserva corretamente a **taxa de ocupação por canal** (colisões ALOHA puras), mas **não captura a saturação de hardware** do gateway (limitação dos 8 demoduladores SX1301). Essa limitação é irrelevante em densidades baixas/médias (onde a probabilidade de >8 transmissões simultâneas é negligível), mas se torna o fator dominante em densidades extremas.
+Em uma rede real de 64 canais físicos, a energia cumulativa de milhares de dispositivos transmitindo simultaneamente eleva o *noise floor* de toda a banda, "ensurdecendo" o gateway. O modelo de dilatação, ao espaçar os pacotes no tempo para manter a ocupação, acaba eliminando artificialmente esse ruído de fundo cumulativo, resultando em um PDR superestimado (86% vs 41.6% em 5.000 nós).
 
-### 6.3. Implicação Prática
+### 6.3. Conclusão para a Defesa do TCC
+
+A Emulação por Dilatação Temporal provou ser um método de alta fidelidade para redes de densidade moderada (até 1.000 nós), onde a probabilidade de colisões destrutivas por ruído de fundo é baixa. No entanto, para o estudo do **colapso de rede** em IoT massivo, a simulação física completa permanece indispensável, pois captura fenômenos da camada física (PHY) que transcendem as equações estatísticas tradicionais do ALOHA.
+
+### 6.4. Implicação Prática
 
 Na prática, uma rede LoRaWAN AU915 real com 5.000 nós e **apenas 1 gateway** já estaria operando muito além da capacidade recomendada. Deployments reais utilizam **múltiplos gateways** com reuso espacial de frequência para atender densidades dessa magnitude. Portanto, a divergência observada reflete um cenário de stress-test artificial, não uma limitação operacional do modelo.
 
