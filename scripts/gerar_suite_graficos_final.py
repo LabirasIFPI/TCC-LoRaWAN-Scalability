@@ -1,20 +1,30 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
-def plot_metric(dfs, metric, ylabel, title, filename):
+def plot_4_lines(dfs, metric, ylabel, title, filename):
     plt.figure(figsize=(10, 6))
-    colors = {"Dilatado_BR": "blue", "Fisico_BR": "red", "Fisico_EU": "green"}
-    markers = {"Dilatado_BR": "o", "Fisico_BR": "s", "Fisico_EU": "^"}
     
-    for label, df in dfs.items():
-        # Agrupar por Nos e calcular média e desvio padrão
-        grouped = df[df['Cenario'] == 1].groupby('Nos')[metric].agg(['mean', 'std', 'count']).reset_index()
-        # IC 95%
-        h = 1.96 * (grouped['std'] / np.sqrt(grouped['count']))
+    configs = [
+        {"df_name": "Fisico_EU", "cenario": 1, "label": "EU868 - Estática", "color": "green", "marker": "s", "ls": "--"},
+        {"df_name": "Fisico_EU", "cenario": 2, "label": "EU868 - ADR", "color": "green", "marker": "o", "ls": "-"},
+        {"df_name": "Dilatado_BR", "cenario": 1, "label": "BR (AU915) - Estática", "color": "blue", "marker": "s", "ls": "--"},
+        {"df_name": "Dilatado_BR", "cenario": 2, "label": "BR (AU915) - ADR", "color": "blue", "marker": "o", "ls": "-"}
+    ]
+    
+    for cfg in configs:
+        if cfg["df_name"] not in dfs:
+            continue
+        df = dfs[cfg["df_name"]]
+        subset = df[df['Cenario'] == cfg["cenario"]]
+        if subset.empty:
+            continue
+        grouped = subset.groupby('Nos')[metric].agg(['mean', 'std', 'count']).reset_index()
+        h = 1.96 * (grouped['std'] / np.sqrt(grouped['count'].replace(0, 1)))
         
-        plt.plot(grouped['Nos'], grouped['mean'], label=label, color=colors[label], marker=markers[label], linewidth=2)
-        plt.fill_between(grouped['Nos'], grouped['mean'] - h, grouped['mean'] + h, color=colors[label], alpha=0.15)
+        plt.plot(grouped['Nos'], grouped['mean'], label=cfg["label"], color=cfg["color"], marker=cfg["marker"], linestyle=cfg["ls"], linewidth=2)
+        plt.fill_between(grouped['Nos'], grouped['mean'] - h, grouped['mean'] + h, color=cfg["color"], alpha=0.15)
 
     plt.xlabel("Número de Nós Terminais", fontsize=12)
     plt.ylabel(ylabel, fontsize=12)
@@ -28,25 +38,33 @@ def plot_metric(dfs, metric, ylabel, title, filename):
 def main():
     files = {
         "Dilatado_BR": "results/CSV/resultados_lorawan_BR_20260505_095045.csv",
-        "Fisico_BR": "results/CSV/resultados_lorawan_BR64CH_20260508_081316.csv",
         "Fisico_EU": "results/CSV/resultados_lorawan_EU_20260505_115221.csv"
     }
     
     dfs = {}
     for label, path in files.items():
-        dfs[label] = pd.read_csv(path)
+        if os.path.exists(path):
+            dfs[label] = pd.read_csv(path)
+        else:
+            print(f"[Aviso] Arquivo não encontrado: {path}")
+
+    os.makedirs("results/Graficos", exist_ok=True)
 
     # 1. PDR
-    plot_metric(dfs, "PDR_Percent", "Packet Delivery Ratio (PDR %)", "Taxa de Entrega de Pacotes (IC 95%)", "final_pdr_comparativo.png")
+    plot_4_lines(dfs, "PDR_Percent", "Packet Delivery Ratio (PDR %)", "Taxa de Entrega de Pacotes (IC 95%)", "final_pdr_comparativo.png")
     
-    # 2. Energia (Nota: No dilatado, precisamos ajustar o valor para o sumário, mas no gráfico vamos mostrar o raw da simulação)
-    plot_metric(dfs, "EnergiaMedia_J", "Consumo Médio por Nó (Joules)", "Consumo Energético Médio (24h)", "final_energia_comparativo.png")
+    # 2. Energia
+    plot_4_lines(dfs, "EnergiaMedia_J", "Consumo Médio por Nó (Joules)", "Consumo Energético Médio (24h)", "final_energia_comparativo.png")
     
-    # 3. Jain Index (Justiça da Rede)
-    plot_metric(dfs, "JainIndex", "Índice de Jain (0 a 1)", "Equidade da Rede (Fairness Index)", "final_jain_fairness.png")
-
-    # 4. Saturação (Perdas por falta de demodulador)
-    plot_metric(dfs, "PerdasSaturacaoExt", "Total de Pacotes Descartados", "Saturação de Hardware do Gateway", "final_saturacao_gateway.png")
+    # 3. Colisões
+    plot_4_lines(dfs, "PerdasColisaoExt", "Pacotes Perdidos por Colisão", "Colisões no Canal ALOHA", "final_saturacao_gateway.png")
+    
+    # 4. Jain Index
+    plot_4_lines(dfs, "JainIndex", "Índice de Jain (0 a 1)", "Equidade da Rede (Fairness Index)", "final_jain_fairness.png")
+    
+    # 5. Latencia
+    plot_4_lines(dfs, "LatenciaMedia_s", "Latência Média (s)", "Latência de Comunicação", "fig5_latencia.png")
 
 if __name__ == "__main__":
     main()
+
