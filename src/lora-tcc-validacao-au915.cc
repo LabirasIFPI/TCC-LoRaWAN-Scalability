@@ -147,8 +147,8 @@ int main(int argc, char* argv[]) {
     std::cout << "  VALIDAÇÃO EMPÍRICA: 64 CANAIS AU915 FÍSICOS" << std::endl;
     std::cout << "  TCC Nícolas Rafael (LoRaWAN) - Cross-Check Model" << std::endl;
     std::cout << "=======================================================" << std::endl;
-    std::cout << "  - Cenário:        Estático (SF por distância, SEM ADR)" << std::endl;
-    std::cout << "  - Região:         Brasil (AU915 - 64 Canais FÍSICOS)" << std::endl;
+    std::cout << "  - Cenário:        " << (scenario == 1 ? "Estático (SF por distância)" : "ADR (Dinâmico)") << std::endl;
+    std::cout << "  - Região:         Brasil (AU915 - " << nChannels << " Canais FÍSICOS)" << std::endl;
     std::cout << "  - Potência TX:    " << txPower << " dBm" << std::endl;
     std::cout << "  - Qtd. de Nós:    " << nNodes << " dispositivos" << std::endl;
     std::cout << "  - Tempo Total:    " << simulationTime << "s (" << FormatSimulationTime(simulationTime) << ")" << std::endl;
