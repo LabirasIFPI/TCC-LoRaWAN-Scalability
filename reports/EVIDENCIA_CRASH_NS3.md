@@ -14,7 +14,7 @@ Para validar o comportamento dinâmico do ADR, foi executado um teste comparativ
 
 ## 2. Registro de Logs (Output do Terminal)
 
-![Evidência de Crash do ns-3](results/Ladder_Validation/evidencia_crash_terminal.png)
+![Evidência de Crash do ns-3](./images/evidencia_crash_terminal.png)
 
 ```text
 ============================================================
