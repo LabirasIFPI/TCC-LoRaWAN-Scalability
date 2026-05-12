@@ -18,10 +18,10 @@ TOTAL_SIMULATIONS=165 # 1 cenário (Estático) x 5 densidades x 33 sementes
 # ADR foi desativado porque a arquitetura nativa do ns-3 crasha com ChMask de 64 canais.
 
 # Caminho absoluto para a pasta do repositório
-REPO_DIR="$HOME/Documents/Nicolas/TCC-LoRaWAN-Scalability"
+REPO_DIR="${REPO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 CSV_DIR="$REPO_DIR/results/CSV"
 LOGS_DIR="$REPO_DIR/results/logs"
-NS3_DIR="$HOME/Documents/Nicolas/ns-allinone-3.45/ns-3.45"
+NS3_DIR="${NS3_DIR:-$HOME/Documents/Nicolas/ns-allinone-3.45/ns-3.45}"
 
 mkdir -p "$CSV_DIR"
 mkdir -p "$LOGS_DIR"
@@ -49,7 +49,7 @@ run_simulation() {
 
     local log_file="$LOGS_DIR/sim_BR64CH_sc${scenario}_n${nodes}_s${seed}.log"
     
-    local output=$(./ns3 run "scratch/lora-tcc-validacao-au915 --scenario=$scenario --nNodes=$nodes --region=BR --enableAnim=false --RngRun=$seed" 2> "$log_file" | grep "^\[RES_VAL\]")
+    local output=$(./ns3 run "lora-tcc-validacao-au915 --scenario=$scenario --nNodes=$nodes --region=BR --enableAnim=false --RngRun=$seed" 2> "$log_file" | grep "^\[RES_VAL\]")
     
     if [ ! -z "$output" ]; then
         local clean_output=$(echo "$output" | sed 's/\[RES_VAL\],//')

@@ -55,7 +55,6 @@ std::map<uint32_t, double> lastTxTime;
 std::map<uint32_t, double> sumLatency;
 
 long dropsUnderSensitivity = 0;
-long dropsInterference = 0;
 long dropsNoReceivers = 0;
 
 static std::string FormatSimulationTime(double seconds) {
@@ -71,7 +70,6 @@ static std::string FormatSimulationTime(double seconds) {
 }
 
 void OnUnderSensitivity(Ptr<const Packet> packet) { dropsUnderSensitivity++; }
-void OnInterfered(Ptr<const Packet> packet) { dropsInterference++; }
 void OnNoReceivers(Ptr<const Packet> packet) { dropsNoReceivers++; }
 
 void OnTxPacket(Ptr<const Packet> packet) {
@@ -142,6 +140,10 @@ int main(int argc, char* argv[]) {
     cmd.AddValue("region", "EU (Europa) ou BR (Brasil)", region);
     cmd.AddValue("enableAnim", "Habilitar NetAnim (true/false)", enableAnim);
     cmd.Parse(argc, argv);
+
+    if (scenario == 2 && nChannels > 3) {
+        NS_FATAL_ERROR("ADR com nChannels > 3 causa SIGSEGV no simulador com a arquitetura padrao. Use scenario=1.");
+    }
 
     std::cout << "\n=======================================================" << std::endl;
     std::cout << "  VALIDAÇÃO EMPÍRICA: 64 CANAIS AU915 FÍSICOS" << std::endl;
@@ -222,7 +224,6 @@ int main(int argc, char* argv[]) {
 
         // Traces de monitoramento
         gwPhy->TraceConnectWithoutContext("UnderSensitivity", MakeCallback(&OnUnderSensitivity));
-        gwPhy->TraceConnectWithoutContext("Interfered", MakeCallback(&OnInterfered));
         gwPhy->TraceConnectWithoutContext("NoReceivers", MakeCallback(&OnNoReceivers));
 
         // Resetar reception paths do EU padrão
@@ -269,12 +270,12 @@ int main(int argc, char* argv[]) {
         // *** SOBRESCREVER channelHelper com número de canais configurado ***
         mac->SetLogicalLoraChannelHelper(CreateAu915ChannelHelper(nChannels));
 
-        // Alocação estática de SF por distância (mesmos limiares da campanha)
+        // Alocação estática de SF por distância (mesmos limiares da campanha, baseados em 14 dBm)
         mac->SetMType(LorawanMacHeader::UNCONFIRMED_DATA_UP);
         Ptr<MobilityModel> mm = node->GetObject<MobilityModel>();
         double distance = mm->GetDistanceFrom(gateways.Get(0)->GetObject<MobilityModel>());
 
-        // Mesmos limiares de distância do script principal (30 dBm TX)
+        // Mesmos limiares de distância do script principal
         int dr = 0;
         if (distance < 1330) dr = 5;       // SF7 (DR5)
         else if (distance < 1690) dr = 4;  // SF8 (DR4)

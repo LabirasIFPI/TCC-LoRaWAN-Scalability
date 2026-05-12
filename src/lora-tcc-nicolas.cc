@@ -56,7 +56,6 @@ std::map<uint32_t, double> lastTxTime;
 std::map<uint32_t, double> sumLatency;
 
 long dropsUnderSensitivity = 0;
-long dropsInterference = 0;
 long dropsNoReceivers = 0; // Saturação de Hardware
 
 static std::string FormatSimulationTime(double seconds) {
@@ -72,7 +71,6 @@ static std::string FormatSimulationTime(double seconds) {
 }
 
 void OnUnderSensitivity(Ptr<const Packet> packet) { dropsUnderSensitivity++; }
-void OnInterfered(Ptr<const Packet> packet) { dropsInterference++; }
 void OnNoReceivers(Ptr<const Packet> packet) { dropsNoReceivers++; }
 
 void OnTxPacket(Ptr<const Packet> packet) {
@@ -165,6 +163,9 @@ int main(int argc, char* argv[]) {
     phyHelper.SetChannel(channel);
 
     LorawanMacHelper macHelper = LorawanMacHelper();
+    // A região base é mantida em EU para ambas as simulações, pois a emulação
+    // de canais da região BR (AU915) é feita através do modelo de dilatação temporal
+    // e ajuste de potência de transmissão (txPower). Isso evita crashes na alocação de canais.
     macHelper.SetRegion(LorawanMacHelper::EU);
 
     LoraHelper helper = LoraHelper();
@@ -177,7 +178,6 @@ int main(int argc, char* argv[]) {
         Ptr<LoraNetDevice> gwNetDev = gateways.Get(i)->GetDevice(0)->GetObject<LoraNetDevice>();
         Ptr<GatewayLoraPhy> gwPhy = gwNetDev->GetPhy()->GetObject<GatewayLoraPhy>();
         gwPhy->TraceConnectWithoutContext("UnderSensitivity", MakeCallback(&OnUnderSensitivity));
-        gwPhy->TraceConnectWithoutContext("Interfered", MakeCallback(&OnInterfered));
         gwPhy->TraceConnectWithoutContext("NoReceivers", MakeCallback(&OnNoReceivers));
     }
 
@@ -205,11 +205,11 @@ int main(int argc, char* argv[]) {
             double distance = mm->GetDistanceFrom(gateways.Get(0)->GetObject<MobilityModel>());
 
             // =========================================================================
-            // ALOCAÇÃO ESTÁTICA DE SF BASEADA EM DISTÂNCIA (Cenário 1)
-            // =========================================================================
-            // Estes limiares foram calculados intercetando a Sensibilidade de Receção (RX Sensitivity)
-            // típica do chip Semtech SX1276 com o modelo de propagação Log-Distance (n=2.8).
-            // Transmitindo a 30 dBm (AU915), o sinal atinge o limite de sensibilidade a distâncias específicas:
+            // NOTA TÉCNICA: Estes limiares (1330m a 3320m) correspondem matematicamente
+            // a uma potência de transmissão de ~14 dBm com o modelo Log-Distance (n=2.8).
+            // Para 30 dBm, os alcances seriam muito maiores (SF7 até ~6430m).
+            // Portanto, a alocação de SF baseada nessas distâncias é conservadora para a região BR (30 dBm)
+            // e adequadamente calibrada (com margem de ~3 dB) para a região EU (14 dBm).
             // - SF7: -123 dBm → ~1330m (sinal mais limpo requerido)
             // - SF8: -126 dBm → ~1690m
             // - SF9: -129 dBm → ~2150m

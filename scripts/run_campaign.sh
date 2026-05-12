@@ -32,14 +32,14 @@ TOTAL_SIMULATIONS=330
 # garantindo intervalo de confiança de 95% para PDR e Energia. Dilui anomalias aleatórias (ex: nós concentrados no Gateway). 
 
 # Caminho absoluto para a pasta do repositório
-REPO_DIR="$HOME/Documents/Nicolas/TCC-LoRaWAN-Scalability"
+REPO_DIR="${REPO_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 CSV_DIR="$REPO_DIR/results/CSV"
 LOGS_DIR="$REPO_DIR/results/logs"
 
 mkdir -p "$CSV_DIR"
 mkdir -p "$LOGS_DIR"
 
-NS3_DIR="$HOME/Documents/Nicolas/ns-allinone-3.45/ns-3.45"
+NS3_DIR="${NS3_DIR:-$HOME/Documents/Nicolas/ns-allinone-3.45/ns-3.45}"
 cd "$NS3_DIR" || { echo -e "${RED}[!] Erro: Diretório do ns-3 não encontrado em $NS3_DIR${NC}"; exit 1; }
 
 echo -e "${YELLOW}>> Recompilando o código fonte C++...${NC}"
