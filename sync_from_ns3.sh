@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Caminho absoluto correto do seu ambiente NS-3.45
-NS3_DIR="$HOME/Documents/Nicolas/ns-allinone-3.45/ns-3.45"
+NS3_DIR="${NS3_DIR:-$HOME/Documents/Nicolas/ns-allinone-3.45/ns-3.45}"
 REPO_DIR=$(pwd)
 
 echo "Sincronizando arquivos do NS-3 para o Repositório..."

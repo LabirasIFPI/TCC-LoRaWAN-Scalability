@@ -46,7 +46,21 @@ chmod +x deploy_to_ns3.sh
 ./deploy_to_ns3.sh
 ```
 
-### 3. Validação Cross-Check (Ladder Test)
+### 3. Campanhas de Simulação (Batch)
+Para executar a campanha estendida (330 simulações com Teorema do Limite Central):
+```bash
+./scripts/run_campaign.sh BR
+./scripts/run_campaign.sh EU
+```
+
+### 4. Geração de Resultados e Gráficos
+Para gerar todos os gráficos comparativos, de barras empilhadas e os intervalos de confiança (95%):
+```bash
+python3 scripts/gerar_analise_completa.py
+python3 scripts/gerar_suite_graficos_final.py
+```
+
+### 5. Validação Cross-Check (Ladder Test)
 Para validar o modelo de dilatação contra a simulação física real (ex: 50 nós, 16 canais, cenário ADR):
 ```bash
 python3 scripts/comparar_ladder_validacao.py 50 16 2 3600

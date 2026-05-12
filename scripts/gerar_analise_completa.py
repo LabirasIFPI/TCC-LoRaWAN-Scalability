@@ -12,7 +12,7 @@ warnings.filterwarnings("ignore")
 # ==========================================
 # 1. CONFIGURAÇÃO DE DIRETÓRIOS E CARREGAMENTO
 # ==========================================
-BASE_DIR = "/home/labiras/Documents/Nicolas/TCC-LoRaWAN-Scalability/results"
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "results"))
 CSV_DIR = os.path.join(BASE_DIR, "CSV")
 GRAFICOS_COMP_DIR = os.path.join(BASE_DIR, "Graficos", "Comparativos_Globais")
 GRAFICOS_IND_DIR = os.path.join(BASE_DIR, "Graficos", "Intra_Regiao")

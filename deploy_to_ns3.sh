@@ -1,5 +1,5 @@
 #!/bin/bash
-NS3_DIR="$HOME/Documents/Nicolas/ns-allinone-3.45/ns-3.45"
+NS3_DIR="${NS3_DIR:-$HOME/Documents/Nicolas/ns-allinone-3.45/ns-3.45}"
 REPO_DIR=$(pwd)
 
 echo "Enviando códigos atualizados para o diretório scratch do ns-3..."

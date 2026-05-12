@@ -36,9 +36,23 @@ def plot_4_lines(dfs, metric, ylabel, title, filename):
     print(f"[OK] Gerado: {filename}")
 
 def main():
+    import glob
+    
+    csv_br_list = [f for f in glob.glob("results/CSV/resultados_lorawan_BR_*.csv") if "BR64CH" not in f]
+    csv_eu_list = glob.glob("results/CSV/resultados_lorawan_EU_*.csv")
+    
+    if not csv_br_list or not csv_eu_list:
+        print("[!] Erro: Não foram encontrados CSVs da campanha BR ou EU na pasta results/CSV/")
+        return
+        
+    latest_br = max(csv_br_list, key=os.path.getctime)
+    latest_eu = max(csv_eu_list, key=os.path.getctime)
+    
+    print(f"[*] Utilizando para gráficos: \n    BR -> {os.path.basename(latest_br)}\n    EU -> {os.path.basename(latest_eu)}")
+
     files = {
-        "Dilatado_BR": "results/CSV/resultados_lorawan_BR_20260505_095045.csv",
-        "Fisico_EU": "results/CSV/resultados_lorawan_EU_20260505_115221.csv"
+        "Dilatado_BR": latest_br,
+        "Fisico_EU": latest_eu
     }
     
     dfs = {}
