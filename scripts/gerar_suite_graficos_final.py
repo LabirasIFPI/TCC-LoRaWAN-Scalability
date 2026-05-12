@@ -45,8 +45,8 @@ def main():
         print("[!] Erro: Não foram encontrados CSVs da campanha BR ou EU na pasta results/CSV/")
         return
         
-    latest_br = max(csv_br_list, key=os.path.getctime)
-    latest_eu = max(csv_eu_list, key=os.path.getctime)
+    latest_br = sorted(csv_br_list)[-1]
+    latest_eu = sorted(csv_eu_list)[-1]
     
     print(f"[*] Utilizando para gráficos: \n    BR -> {os.path.basename(latest_br)}\n    EU -> {os.path.basename(latest_eu)}")
 

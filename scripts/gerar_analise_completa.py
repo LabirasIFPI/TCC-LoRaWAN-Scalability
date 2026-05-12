@@ -25,8 +25,8 @@ print("[*] Iniciando Análise Completa de Dados LoRaWAN...")
 # Carregar os CSVs mais recentes (Campanhas Oficiais, ignora validação cruzada física)
 try:
     csv_br_list = [f for f in glob.glob(os.path.join(CSV_DIR, 'resultados_lorawan_BR_*.csv')) if 'BR64CH' not in f]
-    csv_br = max(csv_br_list, key=os.path.getctime)
-    csv_eu = max(glob.glob(os.path.join(CSV_DIR, 'resultados_lorawan_EU_*.csv')), key=os.path.getctime)
+    csv_br = sorted(csv_br_list)[-1]
+    csv_eu = sorted(glob.glob(os.path.join(CSV_DIR, 'resultados_lorawan_EU_*.csv')))[-1]
     
     print(f"  [-] Base BR: {os.path.basename(csv_br)}")
     print(f"  [-] Base EU: {os.path.basename(csv_eu)}")
