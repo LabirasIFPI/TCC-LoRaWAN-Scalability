@@ -1,5 +1,14 @@
 import pandas as pd
 import numpy as np
+import glob
+import os
+
+def find_latest_csv(pattern):
+    """Encontra o CSV mais recente que corresponde ao padrão glob."""
+    files = sorted(glob.glob(pattern))
+    if not files:
+        return None
+    return files[-1]  # O mais recente (ordenação lexicográfica por timestamp)
 
 def generate_summary(file_path, label):
     df = pd.read_csv(file_path)
@@ -12,18 +21,24 @@ def generate_summary(file_path, label):
     return summary
 
 def main():
-    files = {
-        "Dilatado_BR": "results/CSV/resultados_lorawan_BR_20260505_095045.csv",
-        "Fisico_BR": "results/CSV/resultados_lorawan_BR64CH_20260508_081316.csv",
-        "Fisico_EU": "results/CSV/resultados_lorawan_EU_20260505_115221.csv"
+    # Auto-detecção dos CSVs mais recentes por padrão de nome
+    file_patterns = {
+        "Dilatado_BR": "results/CSV/resultados_lorawan_BR_*.csv",
+        "Fisico_BR": "results/CSV/resultados_lorawan_BR64CH_*.csv",
+        "Fisico_EU": "results/CSV/resultados_lorawan_EU_*.csv"
     }
 
     all_summaries = []
-    for label, path in files.items():
+    for label, pattern in file_patterns.items():
+        path = find_latest_csv(pattern)
+        if path is None:
+            print(f"Aviso: Nenhum CSV encontrado para padrão '{pattern}'")
+            continue
         try:
+            print(f"[INFO] {label}: usando {os.path.basename(path)}")
             all_summaries.append(generate_summary(path, label))
-        except:
-            print(f"Aviso: Não foi possível processar {path}")
+        except Exception as e:
+            print(f"Aviso: Não foi possível processar {path} ({e})")
 
     if all_summaries:
         final_df = pd.concat(all_summaries)

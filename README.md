@@ -61,11 +61,11 @@ python3 scripts/gerar_suite_graficos_final.py
 ```
 
 ### 5. Validação Cross-Check (Ladder Test)
-Para validar o modelo de dilatação contra a simulação física real (ex: 50 nós, 16 canais, cenário ADR):
+Para validar o modelo de dilatação contra a simulação física real (ex: 50 nós, 16 canais, cenário Estático):
 ```bash
-python3 scripts/comparar_ladder_validacao.py 50 16 2 3600
+python3 scripts/comparar_ladder_validacao.py 50 16 1 3600
 ```
-*O script detectará automaticamente se o ns-3 sofrer falha de segmentação (SIGSEGV), gerando o relatório de necessidade do modelo.*
+*Nota: O cenário ADR (`scenario=2`) é incompatível com `nChannels > 3` devido a limitações do simulador (causa `NS_FATAL_ERROR`). Use sempre `scenario=1` para validações com múltiplos canais.*
 
 ---
 
