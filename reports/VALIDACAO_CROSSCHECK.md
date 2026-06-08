@@ -16,7 +16,7 @@ Este documento descreve em detalhe o **Teste de Validação de Determinismo (Cro
 
 ## 2. O Problema Técnico: Limitações do ns-3 para AU915
 
-O módulo LoRaWAN do ns-3 (desenvolvido pela Universidade de Padova) foi concebido com forte viés para o padrão **EU868 (Europa)**. Duas limitações estruturais no código-fonte C++ impedem a simulação direta do padrão AU915 (Brasil):
+O módulo LoRaWAN do ns-3 (signetlabdei) foi concebido com forte viés para o padrão **EU868 (Europa)**. Duas limitações estruturais no código-fonte C++ impedem a simulação direta do padrão AU915 (Brasil):
 
 ### 2.1. Limite de 16 Canais no `LorawanMacHelper`
 
@@ -93,7 +93,7 @@ if (region == "BR") {
 
 ### 4.1. O Que Há de Novo
 
-O código de validação ([lora-tcc-validacao-au915.cc](file:///home/labiras/Documents/Nicolas/TCC-LoRaWAN-Scalability/src/lora-tcc-validacao-au915.cc)) faz algo que o código original **nunca fez**: instancia fisicamente os 64 canais AU915 dentro do simulador ns-3, contornando as limitações do `LorawanMacHelper` através de injeção direta nos objetos MAC.
+O código de validação ([lora-tcc-validacao-au915.cc](../src/lora-tcc-validacao-au915.cc)) faz algo que o código original **nunca fez**: instancia fisicamente os 64 canais AU915 dentro do simulador ns-3, contornando as limitações do `LorawanMacHelper` através de injeção direta nos objetos MAC.
 
 > [!NOTE]
 > A diferença fundamental: o código original **emula** 64 canais via matemática. O código de validação **cria** 64 canais reais no motor de simulação. Se ambos produzirem os mesmos resultados de PDR e colisões, a emulação está validada.
@@ -213,17 +213,22 @@ TCC-LoRaWAN-Scalability/
 ├── scripts/
 │   ├── run_campaign.sh                  # Motor multi-core da campanha principal
 │   ├── run_validation_campaign.sh       # Motor multi-core da validação
-│   ├── gerar_analise_final.py           # Geração de gráficos comparativos
-│   └── gerar_graficos.py               # Geração de gráficos individuais
-├── cross_check_validacao.py             # Comparador Dilatação vs Físico (LaTeX)
-├── sync_from_ns3.sh                     # Sincronização ns-3 → repositório
+│   ├── gerar_analise_completa.py        # Geração de gráficos comparativos
+│   ├── cross_check_validacao.py         # Comparador Dilatação vs Físico (LaTeX)
+│   └── comparar_ladder_validacao.py     # Teste da Escada (Ladder Test)
+├── reports/
+│   ├── INDEX.md                         # Índice organizado de todos os documentos
+│   └── images/                          # Evidências visuais
 ├── results/
-│   └── CSV/
-│       ├── resultados_lorawan_BR_*.csv       # Resultados BR (Dilatação)
-│       ├── resultados_lorawan_EU_*.csv       # Resultados EU
-│       ├── resultados_lorawan_BR64CH_*.csv   # Resultados Validação (64ch)
-│       └── tabela_resumo_estatistico.csv     # Resumo consolidado
-└── VALIDACAO_CROSSCHECK.md              # Este documento
+│   ├── CSV/
+│   │   ├── resultados_lorawan_BR_*.csv       # Resultados BR (Dilatação)
+│   │   ├── resultados_lorawan_EU_*.csv       # Resultados EU
+│   │   ├── resultados_lorawan_BR64CH_*.csv   # Resultados Validação (64ch)
+│   │   └── tabela_resumo_estatistico.csv     # Resumo consolidado
+│   └── Graficos/                            # Gráficos gerados (PNG 300dpi)
+├── deploy_to_ns3.sh                     # Copia src/ para scratch/ do ns-3
+├── sync_from_ns3.sh                     # Sincroniza scratch/ do ns-3 para src/
+└── README.md
 ```
 
 ---
@@ -297,26 +302,6 @@ O modelo é considerado **validado** se:
 
 ---
 
-## 10. Argumentação para a Banca
-
-### 10.1. "Por que não simularam diretamente com 64 canais desde o início?"
-
-> O módulo LoRaWAN do ns-3 possui um limite hardcoded de 16 canais no `LorawanMacHelper`. Contornar esta limitação exigiria patches no core do simulador, comprometendo a reprodutibilidade. Além disso, o custo computacional de calcular matrizes de interferência para 5.000 nós em 64 canais tornaria a campanha principal inviável.
-
-### 10.2. "Como provam que a dilatação temporal é válida?"
-
-> Executámos um teste de validação empírica (Cross-Check) onde instanciámos fisicamente os 64 canais AU915 no ns-3 através de injeção direta nos objetos MAC (bypass do LorawanMacHelper). Os resultados de PDR, Jain Index e colisões convergiram com Δ < 1 ponto percentual, provando que a dilatação temporal é matematicamente equivalente à rede física.
-
-### 10.3. "Por que os valores de energia são diferentes?"
-
-> Na dilatação temporal, os nós transmitem ≈21× menos pacotes (período multiplicado por 64/3), logo consomem proporcionalmente menos energia ativa. O valor real pode ser recuperado multiplicando por 21.33. A diferença residual (~3%) corresponde ao consumo base em modo sleep, que é independente do tráfego.
-
-### 10.4. "Por que o Cenário 2 (ADR) não foi testado com 64 canais físicos?"
-
-> Tentámos. O simulador ns-3 colapsou sistematicamente (Segmentation Fault / ausência de saída) em **100% das execuções** do Cenário 2 com 64 canais físicos instanciados. A causa raiz é a incompatibilidade arquitetural do módulo LoRaWAN do ns-3 com o campo `ChMaskCntl` do protocolo AU915. Esta falha empírica é, por si só, a prova mais forte de que a Dilatação Temporal era a única abordagem viável para avaliar o ADR na banda AU915 dentro do simulador ns-3.
-
----
-
 ## 11. Evidência Empírica: Crash do ADR com 64 Canais Físicos
 
 ### 11.1. O Que Aconteceu
@@ -367,14 +352,12 @@ Um teste preliminar com apenas 5 nós e Cenário 2 completou sem erro. Isto ocor
 
 Com 100+ nós, as colisões aumentam, o SNR degrada, e o Network Server começa a enviar `LinkADRReq` em massa — acionando o crash.
 
-### 11.4. Significado para o TCC
+### 10.4. Significado
 
 > [!IMPORTANT]
 > Esta falha empírica é a **prova viva** de que o simulador ns-3, no seu estado atual, é incapaz de avaliar o ADR na banda AU915 com canais físicos. A Dilatação Temporal não é apenas uma otimização computacional — é a **única forma viável** de simular o comportamento do ADR brasileiro dentro do ns-3 sem reescrever o core do módulo LoRaWAN.
 
-Na dissertação, este resultado pode ser apresentado na secção de **"Limitações e Trabalhos Futuros"** como evidência experimental:
-
-> *"Durante a fase de validação empírica, tentou-se executar o Cenário 2 (ADR) com os 64 canais AU915 fisicamente instanciados. No entanto, 100% das simulações (165 de 165) falharam devido à incompatibilidade do módulo LoRaWAN do ns-3 com o mecanismo de Channel Mask Control (`ChMaskCntl`) exigido pela especificação AU915. Esta limitação estrutural do simulador reforça a necessidade e validade da abordagem de Dilatação Temporal proposta neste trabalho."*
+Esta limitação estrutural do simulador reforça a necessidade e validade da abordagem de Dilatação Temporal.
 
 ---
 
@@ -414,4 +397,4 @@ Esta descoberta valoriza o trabalho ao demonstrar que o autor compreende as nuan
 
 ---
 
-*Documento atualizado em 11/05/2026 — TCC Nícolas Rafael Silva Alves, IFPI*
+*Documento atualizado em 08/06/2026 — TCC Nícolas Rafael Silva Alves, IFPI*

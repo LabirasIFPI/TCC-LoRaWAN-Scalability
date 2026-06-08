@@ -32,7 +32,7 @@ Para a sua apresentação, utilize os seguintes arquivos:
 3.  `final_jain_fairness.png`: Estabilidade da justiça da rede.
 4.  `final_saturacao_gateway.png`: Prova visual do descarte de pacotes no SX1301.
 
-## 5. Veredito de Validação (O "Trunfo" da Defesa)
+## 5. Veredito de Validação
 *   **Concordância Lógica:** Provada até 1.000 nós.
 *   **Necessidade do Modelo:** Provada pelo crash `SIGSEGV` do ns-3 em simulações físicas de ADR.
 *   **Divergência Científica:** Atribuída à saturação dos 8 demoduladores (provada via Teoria das Filas M/M/8).

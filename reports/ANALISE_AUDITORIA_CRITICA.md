@@ -30,12 +30,16 @@ O comparativo entre o cenário Estático e ADR é afetado pela dilatação na Ca
 A auditoria invalida a "Retro-Escala Linear" do consumo de energia para fins de engenharia eletrônica rigorosa.
 
 *   **Custos Fixos de Transição:** O dreno de corrente para Wake-up do rádio, estabilização de cristal (PLL) e transição TX-to-RX é um valor **fixo por pacote**. 
-*   **O Erro:** Ao multiplicar o consumo final por 21,33, o modelo escala tempos de *Idle/Sleep* como se fossem tempos ativos de rádio, ignorando a natureza não-linear da Máquina de Estados Finitos (FSM) do transceptor SX1276.
+*   **O Erro:** Ao multiplicar o consumo final por 21,33, o modelo escala tempos de *Idle/Sleep* como se fossem tempos ativos de rádio, ignorando a natureza não-linear da Máquina de Estados Finitos (FSM) do transceptor SX1272.
 
-## 5. Envelope de Validade e Defesa do TCC
+## 5. Envelope de Validade
 
 A auditoria não invalida o trabalho, mas o reclassifica em termos de rigor científico:
 
 1.  **Zona de Convergência (N ≤ 1.000):** O modelo é estatisticamente convergente com o físico, sendo uma ferramenta válida de predição.
 2.  **Limite Assintótico Superior (N > 1.000):** Para densidades extremas, o modelo deve ser interpretado como a **Capacidade Lógica Máxima do Protocolo**, representando o desempenho ideal na ausência de restrições de hardware e ruído analógico.
 3.  **Diferencial Acadêmico:** A capacidade de quantificar a lacuna entre o "Lógico" (86%) e o "Físico" (41%) é o maior achado do TCC, demonstrando maturidade em Engenharia de Telecomunicações.
+
+---
+
+*Documento de auditoria — TCC Nícolas Rafael Silva Alves, IFPI — Atualizado em 08/06/2026*

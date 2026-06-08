@@ -3,7 +3,7 @@
 Este documento lista as referências fundamentais para sustentar as decisões metodológicas e os achados técnicos deste trabalho.
 
 ## 1. O Simulador e o Módulo LoRaWAN
-*Estas referências validam o uso do ns-3 e do módulo Padova como ferramentas científicas aceitas.*
+*Estas referências validam o uso do ns-3 e do módulo signetlabdei como ferramentas científicas aceitas.*
 
 *   **MAGRIN, F.; CAPONE, S.; ZORZI, M.** "A High-Fidelity LoRaWAN Simulator for ns-3". In: *Proceedings of the 10th International Conference on Simulation Tools and Techniques (SIMUTools)*, 2017.
     *   *Importância:* É o "paper mãe" do módulo que você usou. Deve ser citado na Metodologia.

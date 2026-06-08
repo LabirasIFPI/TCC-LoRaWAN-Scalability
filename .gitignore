@@ -20,3 +20,9 @@ Thumbs.db
 
 # Results (keep summaries, ignore raw heavy logs)
 results/logs/
+
+# Backups
+*.bak
+
+# Documentos de defesa/escrita (apenas local)
+docs_defesa/

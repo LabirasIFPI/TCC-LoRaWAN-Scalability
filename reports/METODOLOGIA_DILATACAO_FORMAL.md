@@ -1,6 +1,6 @@
 # Fundamentação Metodológica: Modelo de Dilatação Temporal
 
-Este documento apresenta a descrição formal do artifício metodológico utilizado para a avaliação da escalabilidade LoRaWAN no plano de frequências AU915, visando a integração direta no texto da monografia.
+Este documento apresenta a descrição formal do artifício metodológico utilizado para a avaliação da escalabilidade LoRaWAN no plano de frequências AU915.
 
 ## 1. O Problema da Escala de Canais no ns-3.45
 O simulador Network Simulator 3 (ns-3), embora robusto, apresenta limitações arquiteturais no suporte a planos de frequência massivos (64 canais), como o padrão brasileiro AU915. O módulo `lorawan` oficial restringe a configuração de *helpers* a um teto de 16 canais lógicos, impossibilitando a instanciação direta da malha completa de 64 canais em simulações dinâmicas (ADR).
@@ -59,3 +59,7 @@ OK (PDR: 93.589744%)
 ![Evidência de Convergência Delta Zero](images/evidencia_delta_zero.png)
 
 A convergência absoluta (0.00% de diferença) valida que a abstração por dilatação temporal reproduz com fidelidade total a lógica de acesso ao meio do protocolo LoRaWAN, servindo como prova de sanidade matemática para os resultados de larga escala (5.000 nós) apresentados nesta pesquisa.
+
+---
+
+*Documento de metodologia — TCC Nícolas Rafael Silva Alves, IFPI — Atualizado em 08/06/2026*

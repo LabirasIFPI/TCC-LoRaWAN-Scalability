@@ -2,7 +2,7 @@
 
 ## Instituição: IFPI (Instituto Federal do Piauí)
 ## Tema: Análise de Escalabilidade em Redes LoRaWAN Massivas
-## Simulador: ns-3.45 (C++) com módulo LoRaWAN (Universidade de Padova)
+## Simulador: ns-3.45 (C++) com módulo LoRaWAN (signetlabdei)
 
 ---
 
@@ -11,7 +11,7 @@
 Avaliar a escalabilidade de redes LoRaWAN massivas (de 100 até 5.000 end devices) comparando **duas estratégias de alocação de Spreading Factor (SF)** em **duas regiões regulatórias distintas**, utilizando simulação de eventos discretos no ns-3.
 
 As duas estratégias comparadas são:
-- **Cenário 1 — Alocação Estática Baseada em Distância:** Cada nó recebe um SF fixo (SF7 a SF12) conforme a sua distância ao gateway, calculada a partir da sensibilidade do receptor SX1276.
+- **Cenário 1 — Alocação Estática Baseada em Distância:** Cada nó recebe um SF fixo (SF7 a SF12) conforme a sua distância ao gateway, calculada a partir da sensibilidade do receptor SX1272.
 - **Cenário 2 — ADR (Adaptive Data Rate):** O Network Server otimiza dinamicamente o SF de cada nó com base na qualidade do enlace (SNR), seguindo o algoritmo padrão LoRaWAN.
 
 As duas regiões regulatórias são:
@@ -93,7 +93,7 @@ PL(d) = 46.37 + 28·log10(d)  [dB]
 
 ## 5. Limiares de SF por Distância (Cenário 1 — Estático)
 
-Calculados cruzando a sensibilidade RX do SX1276 com o modelo de propagação a 30 dBm:
+Calculados cruzando a sensibilidade RX do SX1272 com o modelo de propagação a 30 dBm:
 
 | SF (DR) | Sensibilidade RX | Distância Máxima |
 |---|---|---|
@@ -181,35 +181,41 @@ Mesmo formato, mas região = `BR_64CH` e sem `scalingFactor` aplicado.
 
 ## 9. Estrutura do Repositório
 
+> Para a versão mais atualizada, consulte o [README.md](../README.md#-estrutura-do-repositório).
+
 ```
 TCC-LoRaWAN-Scalability/
 │
-├── src/                                    # Código-fonte C++ (cópia do scratch/)
-│   ├── lora-tcc-nicolas.cc                 # Simulação principal (Dilatação Temporal)
-│   └── lora-tcc-validacao-au915.cc         # Validação (64 Canais Físicos AU915)
+├── src/                                        # Código-fonte C++ (Modelos de Simulação)
+│   ├── lora-tcc-nicolas.cc                     #   Simulação principal (Dilatação Temporal)
+│   └── lora-tcc-validacao-au915.cc             #   Validação (64 Canais Físicos AU915)
 │
-├── scripts/                                # Automação
-│   ├── run_campaign.sh                     # Motor multi-core campanha principal
-│   ├── run_validation_campaign.sh          # Motor multi-core validação
-│   ├── gerar_analise_final.py              # Gráficos comparativos BR vs EU
-│   └── gerar_graficos.py                   # Gráficos individuais por região
+├── scripts/                                    # Orquestração em Python e Bash
+│   ├── run_campaign.sh                         #   Motor multi-core da campanha principal
+│   ├── run_validation_campaign.sh              #   Motor multi-core da validação (64ch)
+│   ├── gerar_analise_completa.py               #   Gráficos comparativos BR vs EU vs BR64CH
+│   ├── gerar_suite_graficos_final.py           #   Suite de gráficos finais
+│   ├── cross_check_validacao.py                #   Comparador Dilatação vs Físico + LaTeX
+│   ├── comparar_ladder_validacao.py            #   Teste da Escada (Ladder Test)
+│   └── visualizar_divergencia_snir.py          #   Gráfico de divergência SNIR
 │
-├── cross_check_validacao.py                # Comparador Dilatação vs Físico + LaTeX + Gráficos
-├── sync_from_ns3.sh                        # Sincronização ns-3 scratch/ → src/
-├── VALIDACAO_CROSSCHECK.md                 # Documentação do Cross-Check
+├── reports/                                    # Evidências, Auditorias e Análises Técnicas
+│   ├── INDEX.md                                #   Índice organizado de todos os documentos
+│   └── images/                                 #   Capturas de tela e evidências visuais
 │
 ├── results/
-│   ├── CSV/
-│   │   ├── resultados_lorawan_BR_*.csv         # Campanha BR (Dilatação)
-│   │   ├── resultados_lorawan_EU_*.csv         # Campanha EU
-│   │   ├── resultados_lorawan_BR64CH_*.csv     # Validação 64 canais
-│   │   └── tabela_resumo_estatistico.csv       # Média ± IC95% consolidado
-│   ├── Graficos_Comparativos/                  # PNGs 300dpi para o TCC
-│   ├── Graficos/                               # Gráficos individuais
-│   └── logs/                                   # Stderr do ns-3 (debug)
+│   ├── CSV/                                    #   Dados brutos e resumos estatísticos
+│   ├── Graficos/                               #   Gráficos gerados (PNG 300dpi)
+│   │   ├── Comparativos_Globais/
+│   │   ├── Cross_Check/
+│   │   └── Intra_Regiao/
+│   └── logs/                                   #   Stderr do ns-3 (não versionado)
 │
-├── README.md
-└── LICENSE (GPL v3)
+├── deploy_to_ns3.sh                            # Copia src/ para scratch/ do ns-3
+├── sync_from_ns3.sh                            # Sincroniza scratch/ do ns-3 para src/
+├── requirements.txt                            # Dependências Python
+├── LICENSE                                     # GNU GPLv3
+└── README.md
 ```
 
 ---
@@ -220,7 +226,7 @@ TCC-LoRaWAN-Scalability/
 |---|---|
 | SO | Pop!_OS (Linux) |
 | Simulador | ns-3.45 (ns-allinone-3.45) |
-| Módulo LoRaWAN | contrib/lorawan (Padova, versão ns-3.45) |
+| Módulo LoRaWAN | contrib/lorawan (signetlabdei, versão ns-3.45) |
 | Caminho do ns-3 | `~/Documents/Nicolas/ns-allinone-3.45/ns-3.45/` |
 | Caminho do repositório | `~/Documents/Nicolas/TCC-LoRaWAN-Scalability/` |
 | Localização do código no ns-3 | `scratch/lora-tcc-nicolas.cc` e `scratch/lora-tcc-validacao-au915.cc` |
@@ -291,14 +297,14 @@ graph LR
 
 ## 14. Referências Técnicas Internas
 
-- Código principal: [lora-tcc-nicolas.cc](file:///home/labiras/Documents/Nicolas/TCC-LoRaWAN-Scalability/src/lora-tcc-nicolas.cc)
-- Código de validação: [lora-tcc-validacao-au915.cc](file:///home/labiras/Documents/Nicolas/TCC-LoRaWAN-Scalability/src/lora-tcc-validacao-au915.cc)
-- Motor de campanha BR/EU: [run_campaign.sh](file:///home/labiras/Documents/Nicolas/TCC-LoRaWAN-Scalability/scripts/run_campaign.sh)
-- Motor de campanha validação: [run_validation_campaign.sh](file:///home/labiras/Documents/Nicolas/TCC-LoRaWAN-Scalability/scripts/run_validation_campaign.sh)
-- Cross-check Python: [cross_check_validacao.py](file:///home/labiras/Documents/Nicolas/TCC-LoRaWAN-Scalability/cross_check_validacao.py)
-- Análise estatística: [gerar_analise_final.py](file:///home/labiras/Documents/Nicolas/TCC-LoRaWAN-Scalability/scripts/gerar_analise_final.py)
-- Documentação Cross-Check: [VALIDACAO_CROSSCHECK.md](file:///home/labiras/Documents/Nicolas/TCC-LoRaWAN-Scalability/VALIDACAO_CROSSCHECK.md)
+- Código principal: [lora-tcc-nicolas.cc](../src/lora-tcc-nicolas.cc)
+- Código de validação: [lora-tcc-validacao-au915.cc](../src/lora-tcc-validacao-au915.cc)
+- Motor de campanha BR/EU: [run_campaign.sh](../scripts/run_campaign.sh)
+- Motor de campanha validação: [run_validation_campaign.sh](../scripts/run_validation_campaign.sh)
+- Cross-check Python: [cross_check_validacao.py](../scripts/cross_check_validacao.py)
+- Análise estatística: [gerar_analise_completa.py](../scripts/gerar_analise_completa.py)
+- Documentação Cross-Check: [VALIDACAO_CROSSCHECK.md](VALIDACAO_CROSSCHECK.md)
 
 ---
 
-*Documento de contexto — TCC Nícolas Rafael Silva Alves, IFPI — Atualizado em 28/04/2026*
+*Documento de contexto — TCC Nícolas Rafael Silva Alves, IFPI — Atualizado em 08/06/2026*

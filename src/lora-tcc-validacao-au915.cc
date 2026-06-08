@@ -1,7 +1,7 @@
 /*
  * TCC Nícolas Rafael - Validação Empírica AU915 com 64 Canais Físicos
  *
- * Copyright (C) 2025 Nícolas Rafael Silva Alves
+ * Copyright (C) 2026 Nícolas Rafael Silva Alves
  * Este programa é software livre sob os termos da GPL v3.
  *
  * OBJETIVO: Provar empiricamente que o modelo de dilatação temporal

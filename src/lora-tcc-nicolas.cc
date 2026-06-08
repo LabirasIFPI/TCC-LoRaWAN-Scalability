@@ -1,7 +1,7 @@
 /*
  * TCC Nícolas Rafael - Análise de Escalabilidade em Redes LoRaWAN
  *
- * Copyright (C) 2025 Nícolas Rafael Silva Alves
+ * Copyright (C) 2026 Nícolas Rafael Silva Alves
  * Este programa é software livre: podes redistribuí-lo e/ou modificá-lo
  * sob os termos da Licença Pública Geral GNU (GPL) conforme publicada pela
  * Free Software Foundation, versão 3 da Licença.

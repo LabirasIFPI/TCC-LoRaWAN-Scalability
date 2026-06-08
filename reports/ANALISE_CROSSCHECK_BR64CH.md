@@ -183,7 +183,7 @@ A causa científica desta divergência reside na **Interferência Inter-Canal e 
 
 Em uma rede real de 64 canais físicos, a energia cumulativa de milhares de dispositivos transmitindo simultaneamente eleva o *noise floor* de toda a banda, "ensurdecendo" o gateway. O modelo de dilatação, ao espaçar os pacotes no tempo para manter a ocupação, acaba eliminando artificialmente esse ruído de fundo cumulativo, resultando em um PDR superestimado (86% vs 41.6% em 5.000 nós).
 
-### 6.3. Conclusão para a Defesa do TCC
+### 6.3. Conclusão
 
 A Emulação por Dilatação Temporal provou ser um método de alta fidelidade para redes de densidade moderada (até 1.000 nós), onde a probabilidade de colisões destrutivas por ruído de fundo é baixa. No entanto, para o estudo do **colapso de rede** em IoT massivo, a simulação física completa permanece indispensável, pois captura fenômenos da camada física (PHY) que transcendem as equações estatísticas tradicionais do ALOHA.
 
@@ -199,9 +199,8 @@ O CSV original da campanha BR64CH (`resultados_lorawan_BR64CH_20260504_170203.cs
 
 ## 7. Referências Internas
 
-- **Código de validação corrigido:** [`src/lora-tcc-validacao-au915.cc`](src/lora-tcc-validacao-au915.cc)
-- **Script de análise cross-check:** [`scripts/cross_check_validacao.py`](scripts/cross_check_validacao.py)
-- **Script de análise completa:** [`scripts/gerar_analise_completa.py`](scripts/gerar_analise_completa.py)
-- **Gráficos do cross-check:** [`results/Graficos/Cross_Check/`](results/Graficos/Cross_Check/)
-- **CSV corrigido:** [`results/CSV/resultados_lorawan_BR64CH_20260504_170203.csv`](results/CSV/resultados_lorawan_BR64CH_20260504_170203.csv)
-- **Backup original:** [`results/CSV/resultados_lorawan_BR64CH_20260504_170203.csv.bak`](results/CSV/resultados_lorawan_BR64CH_20260504_170203.csv.bak)
+- **Código de validação corrigido:** [lora-tcc-validacao-au915.cc](../src/lora-tcc-validacao-au915.cc)
+- **Script de análise cross-check:** [cross_check_validacao.py](../scripts/cross_check_validacao.py)
+- **Script de análise completa:** [gerar_analise_completa.py](../scripts/gerar_analise_completa.py)
+- **Gráficos do cross-check:** [Cross_Check/](../results/Graficos/Cross_Check/)
+- **CSV dos resultados:** [resultados_lorawan_BR64CH_20260508_081316.csv](../results/CSV/resultados_lorawan_BR64CH_20260508_081316.csv)
